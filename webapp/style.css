@@ -1,0 +1,90 @@
+:focus {outline:none;}
+::-moz-focus-inner {border:0;}
+
+body {
+ background-color: #fafafa;
+ font-size : 15px;
+ font-family : Arial;
+ display: flex;
+ flex-direction : column;
+ height: 100vh;
+ margin: 0px;
+ align-items: center;
+}
+
+#script_holder {
+  display: hidden;
+}
+
+#terminal_manager {
+  width : 100%;
+  height: 100%;
+  background-color: #ececec;
+  position:absolute;
+  display: flex;
+  flex-direction : column;
+  justify-content: center;
+  align-items: center;
+}
+
+#terminal_manager_info_text {
+  text-align: center;
+}
+
+#reconnect_info {
+  width : 100%;
+  height: 100%;
+  background-color: #fafafa;
+  position:relative;
+  display: flex;
+  flex-direction : column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+#reconnect_bt {
+  width: 45px;
+  height: 30px;
+}
+
+.base_bt {
+  color : black;
+  border-radius: 10px;
+  border: solid #8c8c8c 1px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  height : 35px;
+}
+
+.base_bt:hover {
+  border: solid #8c8c8c 2px;
+  height : 33px;
+}
+
+.terminal_node {
+  display: flex;
+  margin-top: 25px;
+  margin-bottom: 25px;
+  height : 100%;
+  width : 70%;
+  flex-direction : column;
+}
+
+.horizontal {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.vertical {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
