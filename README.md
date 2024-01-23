@@ -1,6 +1,6 @@
-# Html Terminal
+# HTML Terminal
 
-Tool for controling linux terminals over the web.
+Tool for controlling Linux terminals over the web.
 
 # Work In Progress
 
@@ -14,8 +14,8 @@ If you're interested in checking it - quick way to start :
  - run control server : ./server
  - open web interface : http://localhost:8080
 
-Server url can be set by modifing DEFAULT_TERMINAL_SERVER_HOST / DEFAULT_TERMINAL_SERVER_PORT in ClientLibWrapper.h
-or by setting env variables : TERMINAL_SERVER_HOST / TERMINAL_SERVER_PORT before startign client.
+Server URL can be set by modifying DEFAULT_TERMINAL_SERVER_HOST / DEFAULT_TERMINAL_SERVER_PORT in ClientLibWrapper.h
+or by setting env variables : TERMINAL_SERVER_HOST / TERMINAL_SERVER_PORT before starting client.
 
 # License
 
