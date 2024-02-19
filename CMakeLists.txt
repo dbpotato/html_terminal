@@ -87,7 +87,7 @@ include_directories(
 )
 
 set(COMMON
-
+  ${COMMON_DIR}/tools/logger/Logger.cpp
   ${COMMON_DIR}/tools/net/SocketContext.cpp
   ${COMMON_DIR}/tools/net/SocketObject.cpp
   ${COMMON_DIR}/tools/net/Client.cpp
@@ -131,6 +131,7 @@ set(SERVER
 )
 
 set(CLIENT
+  ${COMMON_DIR}/tools/logger/Logger.cpp
   ${SRC_DIR}/term_client.cpp
 )
 

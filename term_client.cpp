@@ -24,10 +24,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ClientLibWrapper.h"
 #include "Logger.h"
 
+#include <unistd.h>
+
+
 int main () {
   log()->info("TerminalClientWrapper::Init : {}", TerminalClientWrapper::Init());
   while(true) {
     sleep(1);
   }
   return 0;
-} 
+}

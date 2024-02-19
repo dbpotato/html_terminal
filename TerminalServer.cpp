@@ -249,7 +249,7 @@ void TerminalServer::HandleTerminalCreated(std::shared_ptr<Data> msg_data) {
 
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
-    DLOG(warn, "TerminalServer : can't find client for terminal");
+    DLOG(warn, "TerminalServer : can't find client for terminal : {}", terminal_id);
     return;
   } else {
     app_client_id = it->second._app_client_id;
@@ -271,7 +271,7 @@ void TerminalServer::HandleTerminalRead(std::shared_ptr<Data> msg_data) {
 
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
-    DLOG(warn, "TerminalServer : can't find client for terminal");
+    DLOG(warn, "TerminalServer : can't find client for terminal : {}", terminal_id);
     return;
   } else {
     app_client_id = it->second._app_client_id;
@@ -291,7 +291,7 @@ void TerminalServer::HandleTerminalEnd(std::shared_ptr<Data> msg_data) {
 
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
-    DLOG(warn, "TerminalServer : can't find client for terminal");
+    DLOG(warn, "TerminalServer : can't find client for terminal : {}", terminal_id);
     return;
   } else {
     app_client_id = it->second._app_client_id;
