@@ -48,7 +48,6 @@ class TerminalView extends View {
   }
 
   write(msg) {
-    console.log("Write : " + String.fromCharCode(msg));
     this.terminal.write(msg);
   }
 

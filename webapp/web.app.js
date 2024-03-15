@@ -33,7 +33,8 @@ class WebApp {
     if(json.type == "terminal_added") {
       this.terminalManager.addTerminal(json.id);
     } else if(json.type == "terminal_output") {
-      this.terminalManager.onTerminalOutput(json.id, json.output);
+      let bytes2str = String.fromCharCode.apply(null, new Uint16Array(json.output.bytes));
+      this.terminalManager.onTerminalOutput(json.id, bytes2str);
     } else if(json.type == "terminal_closed") {
       this.terminalManager.onTerminalClosed(json.id);
     }

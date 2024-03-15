@@ -118,7 +118,7 @@ std::string JsonMsg::MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data
   jobj["id"] = terminal_id;
   std::vector<uint8_t> vec((uint8_t*)output->GetCurrentDataRaw(),
                           (uint8_t*)output->GetCurrentDataRaw() + (size_t)output->GetCurrentSize());
-  jobj["output"] = output->ToString();
+  jobj["output"] = nlohmann::json::binary(vec);
   return jobj.dump();
 }
 
