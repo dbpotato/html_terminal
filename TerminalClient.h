@@ -27,6 +27,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Terminal.h"
 #include "NetUtils.h"
 
+#include <atomic>
+
 
 class Connection;
 class Client;
@@ -47,6 +49,7 @@ public:
   void OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) override;
   bool OnClientConnecting(std::shared_ptr<Client> client, NetError err) override;
   void OnClientConnected(std::shared_ptr<Client> client) override;
+  void OnClientClosed(std::shared_ptr<Client> client) override;
 
   void SendPingToClient(std::shared_ptr<Client> client) override;
   void CreateClient(std::shared_ptr<MonitorTask> task, const std::string& url, int port) override;
@@ -55,22 +58,30 @@ public:
   void OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) override;
   void OnTerminalEnd(std::shared_ptr<Terminal> terminal) override;
 
+  void DeleteTerminals();
+
   void HandlePingMessage(std::shared_ptr<Client> client);
   void HandleCreateTerminal(std::shared_ptr<Data> msg);
   void HandleDeleteTerminal(std::shared_ptr<Data> msg);
   void HandleResizeTerminal(std::shared_ptr<Data> msg);
   void HandleTerminalWrite(std::shared_ptr<Data> msg);
 
+  void HandleDisconnected();
+
+  void EnableReadFromTerminals(bool enabled);
+
 protected:
   TerminalClient(std::shared_ptr<Connection> connection,
                       int port,
                       const std::string& host);
   void Init();
+  void ResolvePendingMsgUpdated();
 
 private :
   std::shared_ptr<Connection> _connection;
   int _port;
   std::string _host;
+  std::atomic_int _pending_msg_counter;
   std::shared_ptr<TerminalHandler> _term_handler;
   std::shared_ptr<ThreadLoop> _thread;
   std::shared_ptr<Client> _client;

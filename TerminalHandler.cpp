@@ -27,21 +27,21 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 TerminalHandler::TerminalHandler(std::shared_ptr<TerminalListener> parent_listener,
-                                std::shared_ptr<ThreadLoop> thread) {
-  _parent_listener = parent_listener;
-  _thread = thread;
+                                std::shared_ptr<ThreadLoop> thread)
+    : _parent_listener(parent_listener)
+    , _thread(thread)
+    , _read_enabled(true) {
 }
 
 bool TerminalHandler::CreateTerminal(uint32_t terminal_id) {
   if(_thread->OnDifferentThread()) {
-    DLOG(error, "TerminalHandler::CreateTerminal : Called on wrong thread");
+    DLOG(error, "CreateTerminal : Called on wrong thread");
     return false;
   }
 
   auto it = _terminals.find(terminal_id);
   if(it != _terminals.end()) {
-    DLOG(error, "TerminalHandler::CreateTerminal : Terminal with id : {} already exists",
-                terminal_id);
+    DLOG(error, "CreateTerminal : Terminal with id : {} already exists", terminal_id);
     return false;
   }
 
@@ -52,29 +52,36 @@ bool TerminalHandler::CreateTerminal(uint32_t terminal_id) {
 
 void TerminalHandler::DeleteTerminal(uint32_t terminal_id) {
   if(_thread->OnDifferentThread()) {
-    DLOG(error, "TerminalHandler::DeleteTerminal : Called on wrong thread");
+    DLOG(error, "DeleteTerminal : Called on wrong thread");
     return;
   }
 
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
-    DLOG(error, "TerminalHandler::DeleteTerminal : Can't find terminal id : {}", terminal_id);
+    DLOG(error, "DeleteTerminal : Can't find terminal id : {}", terminal_id);
     return;
   }
 
   _terminals.erase(it);
 }
 
+void TerminalHandler::DeleteTerminals() {
+  if(_thread->OnDifferentThread()) {
+    DLOG(error, "DeleteTerminals : Called on wrong thread");
+    return;
+  }
+  _terminals.clear();
+}
+
 void TerminalHandler::Resize(uint32_t terminal_id, int width, int height) {
   if(_thread->OnDifferentThread()) {
-    DLOG(error, "TerminalHandler::Resize : Called on wrong thread");
+    DLOG(error, "Resize : Called on wrong thread");
     return;
   }
 
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
-    DLOG(error, "TerminalHandler::Resize : Terminal with id : {} don't exists",
-              terminal_id);
+    DLOG(error, "Resize : Terminal with id : {} don't exists", terminal_id);
     return;
   }
 
@@ -83,17 +90,34 @@ void TerminalHandler::Resize(uint32_t terminal_id, int width, int height) {
 
 void TerminalHandler::SendKeyEvent(uint32_t terminal_id, const std::string& key) {
   if(_thread->OnDifferentThread()) {
-    DLOG(error, "TerminalHandler::CreateTerminal : Called on wrong thread");
+    DLOG(error, "CreateTerminal : Called on wrong thread");
     return;
   }
 
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
-    DLOG(error, "TerminalHandler::SendKeyEvent : Cant find Terminal with id : {}", terminal_id);
+    DLOG(error, "SendKeyEvent : Cant find Terminal with id : {}", terminal_id);
     return;
   }
 
   it->second->Write(key);
+}
+
+void TerminalHandler::EnableReadFromTerminals(bool enabled) {
+  if(_thread->OnDifferentThread()) {
+    DLOG(error, "EnableReadFromTerminals : Called on wrong thread");
+    return;
+  }
+
+  if(_read_enabled == enabled){
+    return;
+  }
+
+  _read_enabled = enabled;
+
+  for (auto& terminal : _terminals) {
+    terminal.second->EnableRead(enabled);
+  }
 }
 
 void TerminalHandler::OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) {
@@ -101,5 +125,6 @@ void TerminalHandler::OnTerminalRead(std::shared_ptr<Terminal> terminal, std::sh
 }
 
 void TerminalHandler::OnTerminalEnd(std::shared_ptr<Terminal> terminal) {
+  DLOG(info, "Ended : {}", terminal->GetId());
   //TODO
 }

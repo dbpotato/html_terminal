@@ -41,15 +41,18 @@ public:
                   std::shared_ptr<ThreadLoop> thread);
   bool CreateTerminal(uint32_t terminal_id);
   void DeleteTerminal(uint32_t terminal_id);
+  void DeleteTerminals();
   void Resize(uint32_t terminal_id, int width, int height);
   void SendKeyEvent(uint32_t terminal_id, const std::string& key);
-  void StopTerminal(uint32_t terminal_id);
+
+  void EnableReadFromTerminals(bool enabled);
 
   //TerminalListener
   void OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) override;
   void OnTerminalEnd(std::shared_ptr<Terminal> terminal) override;
 protected:
+  std::shared_ptr<TerminalListener> _parent_listener;
   std::shared_ptr<ThreadLoop> _thread;
   std::map<uint32_t, std::shared_ptr<Terminal>> _terminals;
-  std::shared_ptr<TerminalListener> _parent_listener;
+  bool _read_enabled;
 };

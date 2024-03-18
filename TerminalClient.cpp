@@ -31,6 +31,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "DataResource.h"
 #include "Connection.h"
 
+const int READ_BLOCK_HIGH = 10;
+const int READ_BLOCK_LOW = 5;
+
 
 std::shared_ptr<TerminalClient> TerminalClient::Create(std::shared_ptr<Connection> connection,
                                                                   int port,
@@ -46,7 +49,8 @@ TerminalClient::TerminalClient(std::shared_ptr<Connection> connection,
                       const std::string& host)
     : _connection(connection)
     , _port(port)
-    , _host(host) {
+    , _host(host)
+    , _pending_msg_counter(0) {
   _thread = std::make_shared<ThreadLoop>();
   _thread->Init();
 }
@@ -64,6 +68,7 @@ void TerminalClient::CreateClient(std::shared_ptr<MonitorTask> task, const std::
 }
 
 void TerminalClient::OnClientUnresponsive(std::shared_ptr<Client> client) {
+  HandleDisconnected();
 }
 
 void TerminalClient::OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) {
@@ -79,6 +84,12 @@ void TerminalClient::OnClientRead(std::shared_ptr<Client> client, std::shared_pt
   switch(MessageType::TypeFromInt(msg_header->_type)) {
     case MessageType::PING:
       HandlePingMessage(client);
+      break;
+    case MessageType::ON_TERMINAL_READ_ACK:
+      {
+        _pending_msg_counter--;
+        ResolvePendingMsgUpdated();
+      }
       break;
     case MessageType::CREATE_TERMINAL:
       HandleCreateTerminal(msg_data);
@@ -108,6 +119,10 @@ bool TerminalClient::OnClientConnecting(std::shared_ptr<Client> client, NetError
 
 void TerminalClient::OnClientConnected(std::shared_ptr<Client> client) {
   _client = client;
+}
+
+void TerminalClient::OnClientClosed(std::shared_ptr<Client> client) {
+  HandleDisconnected();
 }
 
 void TerminalClient::HandlePingMessage(std::shared_ptr<Client> client) {
@@ -195,8 +210,12 @@ void TerminalClient::HandleTerminalWrite(std::shared_ptr<Data> msg_data) {
   }
 
   msg_data->AddOffset(4);
-
   _term_handler->SendKeyEvent(terminal_id, msg_data->ToString());
+}
+
+void TerminalClient::HandleDisconnected() {
+  _pending_msg_counter.store(0);
+  DeleteTerminals();
 }
 
 void TerminalClient::OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) {
@@ -206,7 +225,10 @@ void TerminalClient::OnTerminalRead(std::shared_ptr<Terminal> terminal, std::sha
   data->Add(output->GetCurrentSize(), output->GetCurrentDataRaw());
   auto resource = std::make_shared<DataResource>(data);
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::ON_TERMINAL_READ, resource);
+
+  _pending_msg_counter++;
   _client->Send(msg);
+  ResolvePendingMsgUpdated();
 }
 
 void TerminalClient::OnTerminalEnd(std::shared_ptr<Terminal> terminal) {
@@ -215,4 +237,32 @@ void TerminalClient::OnTerminalEnd(std::shared_ptr<Terminal> terminal) {
   auto resource = std::make_shared<DataResource>(data);
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::ON_TERMINAL_END, resource);
   _client->Send(msg);
+}
+
+void TerminalClient::DeleteTerminals() {
+  DLOG(info, "DeleteTerminals");
+  auto shared_this = std::static_pointer_cast<TerminalClient>(shared_from_this());
+  if(_thread->OnDifferentThread()) {
+    _thread->Post(std::bind(&TerminalClient::DeleteTerminals, shared_this));
+    return;
+  }
+  _term_handler->DeleteTerminals();
+}
+
+void TerminalClient::ResolvePendingMsgUpdated() {
+  int counter = _pending_msg_counter.load();
+  if(counter > READ_BLOCK_HIGH) {
+    EnableReadFromTerminals(false);
+  } else if(counter < READ_BLOCK_LOW) {
+    EnableReadFromTerminals(true);
+  }
+}
+
+void TerminalClient::EnableReadFromTerminals(bool enabled) {
+  auto shared_this = std::static_pointer_cast<TerminalClient>(shared_from_this());
+  if(_thread->OnDifferentThread()) {
+    _thread->Post(std::bind(&TerminalClient::EnableReadFromTerminals, shared_this, enabled));
+    return;
+  }
+  _term_handler->EnableReadFromTerminals(enabled);
 }

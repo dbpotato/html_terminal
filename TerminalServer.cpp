@@ -115,6 +115,8 @@ void TerminalServer::DeleteTerminal(int terminal_id){
     return;
   }
 
+  DLOG(info, "DeleteTerminal : {}", terminal_id);
+
   auto it = _terminals.find(terminal_id);
   if(it == _terminals.end()) {
     DLOG(warn, "TerminalServer::DeleteTerminal : terminal id doesn't exist");
@@ -177,7 +179,10 @@ void TerminalServer::OnClientRead(std::shared_ptr<Client> client, std::shared_pt
       HandleTerminalCreated(msg_data);
       break;
     case MessageType::ON_TERMINAL_READ:
-      HandleTerminalRead(msg_data);
+      {
+        client->Send(std::make_shared<SimpleMessage>((uint8_t)MessageType::ON_TERMINAL_READ_ACK));
+        HandleTerminalRead(msg_data);
+      }
       break;
     case MessageType::ON_TERMINAL_END:
       HandleTerminalEnd(msg_data);
@@ -231,6 +236,7 @@ void TerminalServer::CreateClient(std::shared_ptr<MonitorTask> task, const std::
 }
 
 void TerminalServer::OnClientUnresponsive(std::shared_ptr<Client> client) {
+  DLOG(info, "Unresponsive client : {}", client->GetId());
   _proxy_server->RemoveClient(client);
   OnClientClosed(client);
 }
