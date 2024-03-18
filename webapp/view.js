@@ -16,7 +16,11 @@ class View {
   }
 
   deleteNode() {
-    this.node.remove();
+    this.clearNode();
+    if(this.node.parentNode != null) {
+      this.node.parentNode.removeChild(this.node);
+    }
+    this.node = null;
   }
 
   show() {
