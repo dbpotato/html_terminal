@@ -27,7 +27,7 @@ project(HTML_TERMINAL)
 
 set(CXX_FLAGS
  "-O2 \
- -std=gnu++11 \
+ -std=gnu++17 \
  -Wall \
  -Werror \
  -Wundef \
@@ -71,7 +71,7 @@ add_custom_command(
 
 include_directories(
   ${SRC_DIR}/wrappers
-  ${SRC_DIR}/third_party/json/include
+  ${COMMON_DIR}/third_party/json/include
   ${COMMON_DIR}/third_party/digestpp/algorithm
   ${COMMON_DIR}/third_party/cpp-base64
   ${COMMON_DIR}/third_party/spdlog/include
