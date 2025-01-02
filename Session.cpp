@@ -28,15 +28,15 @@ Session::Session(std::shared_ptr<Client> client)
      : _client(client) {
 }
 
-void Session::AddTerminal(int terminal_id) {
-  _terminal_ids.insert(terminal_id);
+void Session::AddTerminal(uint32_t terminal_id, uint32_t remote_host_id) {
+  _terminal_ids.insert({terminal_id, remote_host_id});
 }
 
-void Session::DeleteTerminal(int terminal_id) {
+void Session::DeleteTerminal(uint32_t terminal_id) {
   _terminal_ids.erase(terminal_id);
 }
 
-bool Session::HasTerminalId(int terminal_id) {
+bool Session::HasTerminalId(uint32_t terminal_id) {
   return (_terminal_ids.find(terminal_id) != _terminal_ids.end());
 }
 

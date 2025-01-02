@@ -1,65 +1,76 @@
 class TerminalView extends View {
-  constructor(id) {
+  constructor() {
     super();
-    this.terminal = null;
-    this.fitAddon = null;
-    this.resizeTimout = null;
-    this.id = id;
+    this.terminals = new Map();
+    this.currentTerminal = null;
     this.createNode();
-    this.createTerm();
   }
 
   createNode() {
     super.createNode();
-    this.node.setAttribute("class", "terminal_node");
+    this.node.setAttribute("id", "terminal_view");
   }
 
-  createTerm() {
-    this.terminal = new window.Terminal({
-        fontFamily: '"Cascadia Code", Menlo, monospace',
-        cursorBlink: true,
-        convertEol: true,
-        screenKeys: true,
-        allowProposedApi: true
-    });
-
-    this.fitAddon = new FitAddon.FitAddon();
-    this.terminal.loadAddon(this.fitAddon);
-    this.terminal.open(this.node);
-
-    new ResizeObserver(() => {
-      clearTimeout(this.resizeTimout);
-      this.resizeTimout = setTimeout(function() {
-        this.fitAddon.fit();
-      }.bind(this), 250);
-    }).observe(this.node);
-
-    setTimeout(function() {
-        this.terminal.focus();
-        this.fitAddon.fit();
-      }.bind(this), 50);
-
-    this.terminal.onData(e => {this.onTermData(e);});
-    this.terminal.onResize(e => {this.onTermResize(e);});
+  clear() {
+    this.terminals = new Map();
+    this.currentTerminal = null;
+    this.clearNode();
   }
 
-  fit() {
-    this.fitAddon.fit();
+  createTerminalNode(terminalId) {
+    let terminal = this.getTerminalById(terminalId);
+    if(terminal != null) {
+      return null;
+    }
+    terminal = new TerminalNode(terminalId);
+    this.terminals.set(terminalId, terminal);
+    return terminal;
   }
 
-  write(msg) {
-    this.terminal.write(msg);
+  setTerminalById(terminalId) {
+    if(this.currentTerminal != null) {
+      this.removeObj(this.currentTerminal.node);
+      this.currentTerminal = null;
+    }
+
+    let terminal = this.getTerminalById(terminalId);
+    if(terminal == null) {
+      return;
+    }
+    this.setTerminal(terminal);
   }
 
-  onTermData(e) {
-    document.webApp.messenger.send(MessageBuilder.makeKeyEvent(this.id, e));
+  setTerminal(terminal) {
+    if(this.currentTerminal != null) {
+      this.removeObj(this.currentTerminal.node);
+    }
+    this.currentTerminal = terminal;
+    this.addObj(this.currentTerminal.node);
+    terminal.focus();
   }
 
-  onTermResize(e) {
-    document.webApp.messenger.send(MessageBuilder.makeResizeReq(this.id, e.cols, e.rows));
-  };
+  onTerminalOutput(id, output) {
+    let terminal = this.getTerminalById(id);
+    if(terminal != null) {
+      terminal.write(output);
+    }
+  }
 
-  prompt() {
-    this.write('\r\n$ ');
+  getTerminalById(id) {
+    if(this.terminals.has(id)) {
+      return this.terminals.get(id);
+    } else {
+      return null;
+    }
+  }
+
+  removeTerminal(id) {
+    let terminal = this.getTerminalById(id);
+    if(terminal == null) {
+      return;
+    }
+
+    terminal.deleteNode();
+    this.terminals.delete(id);
   }
 }

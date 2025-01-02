@@ -38,9 +38,16 @@ class ThreadLoop;
 class Server;
 
 struct TerminalInfo {
-  uint32_t _terminal_id;
   uint32_t _proxy_clinet_id;
   uint32_t _app_client_id;
+};
+
+class RemoteHost {
+public:
+  void AddTerminal(uint32_t terminal_id, TerminalInfo info);
+  bool GetTerminalInfo(uint32_t terminal_id, TerminalInfo& out_result);
+private:
+  std::map<uint32_t, TerminalInfo> _terminals;
 };
 
 class TerminalServer
@@ -51,10 +58,10 @@ public:
   void Init(std::shared_ptr<WebAppServer> server_impl,
             std::shared_ptr<Server> proxy_server);
 
-  void CreateNewTerminal(uint32_t app_client_id, uint32_t proxy_client_id);
-  void ResizeTerminal(int terminal_id, int width, int height);
-  void DeleteTerminal(int terminal_id);
-  void SendKeyEvent(int terminal_id, const std::string& key);
+  void CreateNewTerminal(uint32_t app_client_id, uint32_t remote_host_id);
+  void ResizeTerminal(int remote_host_id, int terminal_id, int width, int height);
+  void DeleteTerminal(int remote_host_id, int terminal_id);
+  void SendKeyEvent(int remote_host_id, int terminal_id, const std::string& key);
 
   void OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) override;
   void OnClientClosed(std::shared_ptr<Client> client) override;
@@ -67,14 +74,17 @@ public:
 
 private:
   uint32_t NextId();
-  void HandleTerminalCreated(std::shared_ptr<Data> msg_data);
-  void HandleTerminalRead(std::shared_ptr<Data> msg_data);
-  void HandleTerminalEnd(std::shared_ptr<Data> msg_data);
+  void HandleClientInfo(std::shared_ptr<Client> client, std::shared_ptr<Data> msg_data);
+  void HandleTerminalCreated(std::shared_ptr<Client> client, std::shared_ptr<Data> msg_data);
+  void HandleTerminalRead(std::shared_ptr<Client> client, std::shared_ptr<Data> msg_data);
+  void HandleTerminalEnd(std::shared_ptr<Client> client, std::shared_ptr<Data> msg_data);
   void HandlePingMessage(std::shared_ptr<Client> client);
+
+  bool GetAppClinetId(uint32_t remote_host_id, uint32_t terminal_id, uint32_t& out_app_client_id);
 
   std::shared_ptr<WebAppServer> _webapp_server;
   std::shared_ptr<TerminalHandler> _term_handler;
-  std::map<uint32_t, TerminalInfo> _terminals;
+  std::map<uint32_t, RemoteHost> _remote_hosts;
   static std::atomic<uint32_t> _id_counter;
   std::shared_ptr<ThreadLoop> _thread;
   std::shared_ptr<Server> _proxy_server; 

@@ -35,9 +35,11 @@ class JsonMsg {
 public:
   enum Type {
     UNKNOWN = 0,
+    CLIENT_CONNECED,
+    CLIENT_DISCONNECTED,
     TERMINAL_ADD,
     TERMINAL_DEL,
-    TERMINAL_RESIZE_EVENT,
+    TERMINAL_RESIZE,
     TERMINAL_KEY_EVENT
   };
 
@@ -45,7 +47,12 @@ public:
   bool Parse(const std::string& str);
   std::string ToString();
   Type GetType();
-  static std::string MakeTerminalCreatedMsg(int terminal_id);
+  static std::string MakeRemoteHostConnectedMsg(int client_id,
+                                            const std::string& client_ip,
+                                            const std::string& client_user_name,
+                                            const std::string& client_name);
+  static std::string MakeClientDisconnectedMsg(int client_id);
+  static std::string MakeTerminalCreatedMsg(int client_id, int terminal_id);
   static std::string MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data> output);
   static std::string MakeTerminalClosed(int terminal_id);
   static std::string Empty();

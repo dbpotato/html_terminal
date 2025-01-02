@@ -29,6 +29,7 @@ public:
     UNKNOWN = 0,
     PING,
     PONG,
+    CLIENT_INFO,
     CREATE_TERMINAL,
     RESIZE_TERMINAL,
     DELETE_TERMINAL,

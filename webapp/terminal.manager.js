@@ -1,8 +1,9 @@
 class TerminalManager extends View {
   constructor() {
     super();
-    this.terminals = new Map();
-    this.currentTerminal = null;
+    this.hostList = null;
+    this.terminalView = null;
+    this.hostOptions = null;
     this.noTerminalsInfo = null;
     this.createNode();
   }
@@ -10,11 +11,64 @@ class TerminalManager extends View {
   createNode() {
     super.createNode();
     this.setId("terminal_manager");
+    this.hostList = new RemoteHostList(this);
+    this.addObj(this.hostList.node);
+
+    this.terminalView = new TerminalView();
+    this.addObj(this.terminalView.node);
+
     this.noTerminalsInfo = new View();
     this.noTerminalsInfo.createNode();
     this.noTerminalsInfo.setId("terminal_manager_info_text");
     this.noTerminalsInfo.node.innerHTML = "Currently there are no connected terminal clients.<br>Wait, no need for reload.";
     this.addObj(this.noTerminalsInfo.node);
+
+    //this.showNoTerminalsInfo();
+  }
+
+  clear() {
+    this.hostList.clear();
+    this.terminalView.clear();
+  }
+
+  showNoTerminalsInfo() {
+    this.noTerminalsInfo.show();
+    this.terminalView.hide();
+    this.hostList.hide();
+  }
+
+  hideNoTerminalsInfo() {
+    this.noTerminalsInfo.hide();
+    this.terminalView.show();
+    this.hostList.show();
+  }
+
+  onHostConnected(hostId, hostIp, hostUserName, hostName) {
+    console.log("Remote Host Connected : " + hostId + " : " + hostIp + " : " + hostUserName + " : " + hostName);
+    this.hostList.addHost(hostId, hostIp, hostUserName, hostName);
+    if(this.hostList.size() == 1) {
+      console.log("Get hostList size is: " + this.hostList.size() + "hide NTI, send term req for : " + hostId);
+      var termReqMsg = MessageBuilder.makeNewTerminalReq(hostId);
+      document.webApp.messenger.send(termReqMsg);
+      this.hideNoTerminalsInfo();
+    }
+  }
+
+  onHostDisconnected(hostId) {
+    console.log("Client Disconnected : " + hostId);
+    this.hostList.removeHost(hostId);
+    if(this.hostList.size() == 0) {
+      this.showNoTerminalsInfo();
+    }
+  }
+
+  onHostSelected(host) {
+    if(host.activeTerminal != null) {
+      this.terminalView.setTerminal(host.activeTerminal);
+    } else {
+      var termReqMsg = MessageBuilder.makeNewTerminalReq(host.id);
+      document.webApp.messenger.send(termReqMsg);
+    }
   }
 
   getTerminalById(id) {
@@ -25,17 +79,13 @@ class TerminalManager extends View {
     }
   }
 
-  addTerminal(terminalId) {
-    this.noTerminalsInfo.hide();
-
-    let terminal = new TerminalView(terminalId);
-    this.terminals.set(terminalId, terminal);
-
-    if(this.currentTerminal != null) {
-      this.deleteTerminal(this.currentTerminal.id);
+  onTerminalAdded(hostId, terminalId) {
+    console.log("Got Terminal : " + terminalId + " for host " + hostId)
+    let terminal = this.terminalView.createTerminalNode(terminalId);
+    if(terminal == null) {
+      return;
     }
-    this.currentTerminal = terminal;
-    this.addObj(terminal.node);
+    this.hostList.addTerminalForHost(hostId, terminal);
   }
 
   deleteTerminal(id) {
@@ -44,10 +94,7 @@ class TerminalManager extends View {
   }
 
   onTerminalOutput(id, output) {
-    let terminal = this.getTerminalById(id);
-    if(terminal != null) {
-      terminal.write(output);
-    }
+    this.terminalView.onTerminalOutput(id, output);
   }
 
   onTerminalClosed(id) {
@@ -62,16 +109,5 @@ class TerminalManager extends View {
 
     terminal.deleteNode();
     this.terminals.delete(id);
-
-    if(this.terminals.size == 0) {
-      this.noTerminalsInfo.show();
-    }
-  }
-
-  clear() {
-    this.terminals.forEach((terminal, id) => {
-      terminal.deleteNode();
-    });
-    this.terminals.clear();
   }
 }

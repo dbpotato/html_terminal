@@ -24,19 +24,19 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #pragma once
 
 #include <memory>
-#include <set>
+#include <map>
 
 class Client;
 
 class Session {
 public :
   Session(std::shared_ptr<Client> client);
-  void AddTerminal(int terminal_id);
-  void DeleteTerminal(int terminal_id);
-  bool HasTerminalId(int terminal_id);
-  const std::set<int>& GetTerminalIds() {return _terminal_ids;}
+  void AddTerminal(uint32_t terminal_id, uint32_t remote_host_id);
+  void DeleteTerminal(uint32_t terminal_id);
+  bool HasTerminalId(uint32_t terminal_id);
+  const std::map<uint32_t, uint32_t>& GetTerminals() {return _terminal_ids;}
   std::shared_ptr<Client> GetClient();
 private:
   std::shared_ptr<Client> _client;
-  std::set<int> _terminal_ids;
+  std::map<uint32_t, uint32_t> _terminal_ids; // terminal_id, remote_host_id
 };

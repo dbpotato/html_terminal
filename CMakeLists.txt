@@ -41,7 +41,7 @@ set(LD_FLAGS
    -ldl"
 )
 
-#add_definitions(-DENABLE_DEBUG_LOGGER)
+add_definitions(-DENABLE_DEBUG_LOGGER)
 
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 set(CMAKE_SYSTEM_NAME linux)

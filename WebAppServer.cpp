@@ -30,6 +30,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "HttpHeaderDecl.h"
 #include "HttpMessage.h"
 #include "Logger.h"
+#include "Client.h"
 
 #include "Session.h"
 #include "TerminalServer.h"
@@ -48,6 +49,17 @@ WebAppServer::WebAppServer(std::shared_ptr<TerminalServer> term_proxy)
 }
 
 void WebAppServer::Handle(HttpRequest& request) {
+  auto client = request._client.lock();
+  if(client && client->GetIp().compare("127.0.0.1")) {
+    if(client) {
+      log()->info("WebAppServer::Handle : Client Ip blocked : {}", client->GetIp());
+    } else {
+      log()->info("WebAppServer::Handle cant lock client");
+    }
+    request._response_msg = std::make_shared<HttpMessage>(405);
+    return;
+  }
+
   auto req_header = request._request_msg->GetHeader();
   if(req_header->GetMethod() == HttpHeaderMethod::GET) {
     PerpareHTTPGetResponse(request);
@@ -93,18 +105,19 @@ void WebAppServer::OnWsClientMessage(std::shared_ptr<Client> client, std::shared
   std::string msg_str = msg_resource->GetMemCache()->ToString();
   if(json.Parse(msg_str)) {
     switch(json.GetType()) {
-      case JsonMsg::Type::TERMINAL_ADD :
-        OnTerminalAddReq(client);
+      case JsonMsg::Type::TERMINAL_ADD:
+        OnTerminalAddReq(client, json.ValueToInt("remote_host_id"));
         break;
-      case JsonMsg::Type::TERMINAL_RESIZE_EVENT :
-        OnTerminalResizeReq(client, json.ValueToInt("terminal_id"),
-                                    json.ValueToInt("width"),
-                                    json.ValueToInt("height"));
+      case JsonMsg::Type::TERMINAL_RESIZE:
+        OnTerminalResizeReq(client,
+                            json.ValueToInt("terminal_id"),
+                            json.ValueToInt("width"),
+                            json.ValueToInt("height"));
         break;
-      case JsonMsg::Type::TERMINAL_DEL :
+      case JsonMsg::Type::TERMINAL_DEL:
         OnTerminalDelReq(client, json.ValueToInt("terminal_id"));
         break;
-      case JsonMsg::Type::TERMINAL_KEY_EVENT :
+      case JsonMsg::Type::TERMINAL_KEY_EVENT:
         OnTerminalKeyEvent(client, json.ValueToInt("id"), json.ValueToString("key"));
         break;
       default:
@@ -117,19 +130,29 @@ void WebAppServer::OnWsClientClosed(std::shared_ptr<Client> client) {
   RemoveClient(client);
 }
 
-void WebAppServer::OnTerminalAddReq(std::shared_ptr<Client> client) {
-  //TODO
+void WebAppServer::OnTerminalAddReq(std::shared_ptr<Client> client, int remote_host_id) {
+  log()->info("OnTerminalAddReq host_id : {}", remote_host_id);
+  _term_server->CreateNewTerminal(client->GetId(), remote_host_id);
 }
 
-void WebAppServer::OnTerminalResizeReq(std::shared_ptr<Client> client, int terminal_id, int width, int height) {
+void WebAppServer::OnTerminalResizeReq(std::shared_ptr<Client> client,
+                                       int terminal_id,
+                                       int width,
+                                       int height) {
   if(!IsClientOwningTerminal(client, terminal_id)) {
-    log()->error("WebAppServer::OnTerminalResizeReq : terminal ownership failed");
+    log()->error("WebAppServer::OnTerminalResizeReq : terminal ownership failed : client: {}, terminal: {}",
+                 client->GetId(),
+                 terminal_id);
     return;
   }
-  auto it = _client_sessions.find(client->GetId());
-  auto session = it->second;
 
-  _term_server->ResizeTerminal(terminal_id, width, height);
+  uint32_t remote_host_id = 0;
+  if(!GetRemoteHostId(client->GetId(), terminal_id, remote_host_id)) {
+    DLOG(warn, "OnTerminalResizeReq Failed");
+    return;
+  }
+
+  _term_server->ResizeTerminal(remote_host_id, terminal_id, width, height);
 }
 
 void WebAppServer::OnTerminalDelReq(std::shared_ptr<Client> client, int terminal_id) {
@@ -137,13 +160,19 @@ void WebAppServer::OnTerminalDelReq(std::shared_ptr<Client> client, int terminal
     return;
   }
 
-  DLOG(info, "TerminlalDelReq : client id : {}, terminal id : {}",client->GetId(), terminal_id);
+  DLOG(info, "TerminlalDelReq : client id : {}, terminal id : {}", client->GetId(), terminal_id);
 
   auto it = _client_sessions.find(client->GetId());
   auto session = it->second;
-
   session->DeleteTerminal(terminal_id);
-  _term_server->DeleteTerminal(terminal_id);
+
+  uint32_t remote_host_id = 0;
+  if(!GetRemoteHostId(client->GetId(), terminal_id, remote_host_id)) {
+    DLOG(warn, "OnTerminalDelReq Failed");
+    return;
+  }
+
+  _term_server->DeleteTerminal(remote_host_id, terminal_id);
 }
 
 
@@ -151,7 +180,14 @@ void WebAppServer::OnTerminalKeyEvent(std::shared_ptr<Client> client, int termin
   if(!IsClientOwningTerminal(client, terminal_id)) {
     return;
   }
-  _term_server->SendKeyEvent(terminal_id, key);
+
+  uint32_t remote_host_id = 0;
+  if(!GetRemoteHostId(client->GetId(), terminal_id, remote_host_id)) {
+    DLOG(warn, "OnTerminalKeyEvent Failed");
+    return;
+  }
+
+  _term_server->SendKeyEvent(remote_host_id, terminal_id, key);
 }
 
 bool WebAppServer::IsClientOwningTerminal(std::shared_ptr<Client> client, int terminal_id) {
@@ -168,40 +204,66 @@ bool WebAppServer::IsClientOwningTerminal(std::shared_ptr<Client> client, int te
   return true;
 }
 
-
-void WebAppServer::OnTerminalConnected(uint32_t proxy_client_id) {
+void WebAppServer::OnRemoteHostInfoReceived(uint32_t host_id,
+                                            const std::string& ip,
+                                            const std::string& user_name,
+                                            const std::string& host_name) {
   if(_thread_loop->OnDifferentThread()) {
-    _thread_loop->Post(std::bind(&WebAppServer::OnTerminalConnected, shared_from_this(), proxy_client_id));
+    _thread_loop->Post(std::bind(&WebAppServer::OnRemoteHostInfoReceived,
+                                 shared_from_this(),
+                                 host_id,
+                                 ip,
+                                 user_name,
+                                 host_name));
     return;
   }
+  log()->info("OnRemoteHostInfoReceived - host : {}", host_id);
+  _active_remote_hosts.insert(std::make_pair(host_id, RemoteHostInfo{ip, user_name, host_name}));
 
-  DLOG(info, "WebAppServer::OnTerminalConnected : {}", proxy_client_id);
-
+  auto json_msg = JsonMsg::MakeRemoteHostConnectedMsg((int)host_id, ip, user_name, host_name);
+  auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
   for(auto& it : _client_sessions) {
-    auto session = it.second;
-    _term_server->CreateNewTerminal(session->GetClient()->GetId(), proxy_client_id);
+    it.second->GetClient()->Send(ws_msg);
   }
-
-  _active_terminal_clients.insert(proxy_client_id);
 }
 
-void WebAppServer::OnTerminalCreated(uint32_t client_id, uint32_t terminal_id, bool success) {
+void WebAppServer::OnTerminalClientClosed(uint32_t proxy_client_id) {
   if(_thread_loop->OnDifferentThread()) {
-    _thread_loop->Post(std::bind(&WebAppServer::OnTerminalCreated, shared_from_this(), client_id, terminal_id, success));
+    _thread_loop->Post(std::bind(&WebAppServer::OnTerminalClientClosed, shared_from_this(), proxy_client_id));
     return;
   }
 
-  DLOG(info, "WebAppServer::OnTerminalCreated : client : {}, terminal : {}", client_id, terminal_id);
+  _active_remote_hosts.erase(proxy_client_id);
+
+  auto json_msg =JsonMsg::MakeClientDisconnectedMsg(proxy_client_id);
+  auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
+  for(auto& it : _client_sessions) {
+    it.second->GetClient()->Send(ws_msg);
+  }
+}
+
+void WebAppServer::OnTerminalCreated(uint32_t client_id, uint32_t terminal_id, uint32_t remote_host_id, bool success) {
+  if(_thread_loop->OnDifferentThread()) {
+    _thread_loop->Post(std::bind(&WebAppServer::OnTerminalCreated,
+                                 shared_from_this(),
+                                 client_id, terminal_id,
+                                 remote_host_id,
+                                 success));
+    return;
+  }
+
+  DLOG(info, "WebAppServer::OnTerminalCreated : client : {}, terminal : {}, remote_host_id : {}", client_id, terminal_id, remote_host_id);
 
   auto it = _client_sessions.find(client_id);
   if(it == _client_sessions.end()) {
+    DLOG(warn, "OnTerminalCreated : can't find client : {}", client_id);
     return;
   }
 
   auto session = it->second;
-  session->AddTerminal(terminal_id);
+  session->AddTerminal(terminal_id, remote_host_id);
 
-  auto json_msg = JsonMsg::MakeTerminalCreatedMsg(terminal_id);
+  auto json_msg = JsonMsg::MakeTerminalCreatedMsg((int)remote_host_id, (int)terminal_id);
   auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
   session->GetClient()->Send(ws_msg);
 }
@@ -211,6 +273,8 @@ void WebAppServer::OnTerminalOutput(uint32_t client_id, uint32_t terminal_id, st
     _thread_loop->Post(std::bind(&WebAppServer::OnTerminalOutput, shared_from_this(), client_id, terminal_id, output));
     return;
   }
+
+  log()->info("WebAppServer::OnTerminalOutput");
 
   auto it = _client_sessions.find(client_id);
   if(it == _client_sessions.end()) {
@@ -243,27 +307,22 @@ void WebAppServer::OnTerminalClosed(uint32_t client_id, uint32_t terminal_id) {
   session->GetClient()->Send(ws_msg);
 }
 
-void WebAppServer::OnTerminalsClosed(const std::vector<TerminalInfo>& terminals) {
-  if(_thread_loop->OnDifferentThread()) {
-    _thread_loop->Post(std::bind(&WebAppServer::OnTerminalsClosed, shared_from_this(), terminals));
-    return;
-  }
-
-  for(const TerminalInfo& info : terminals) {
-    OnTerminalClosed(info._app_client_id, info._terminal_id);
-  }
-}
-
 void WebAppServer::AddClient(std::shared_ptr<Client> client) {
   if(_thread_loop->OnDifferentThread()) {
     _thread_loop->Post(std::bind(&WebAppServer::AddClient, shared_from_this(), client));
     return;
   }
 
-  _client_sessions.insert(std::make_pair(client->GetId(), std::make_shared<Session>(client)));
+  log()->info("WebAppServer::AddClient : {}", client->GetId());
 
-  for(auto& proxy_client_id : _active_terminal_clients) {
-     _term_server->CreateNewTerminal(client->GetId(), proxy_client_id);
+  _client_sessions.insert(std::make_pair(client->GetId(), std::make_shared<Session>(client)));
+  for(auto& term_client : _active_remote_hosts) {
+    auto json_msg = JsonMsg::MakeRemoteHostConnectedMsg((int)term_client.first,
+                                                    term_client.second._ip,
+                                                    term_client.second._client_user_name,
+                                                    term_client.second._client_name);
+    auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
+    client->Send(ws_msg);
   }
 }
 
@@ -281,11 +340,35 @@ void WebAppServer::RemoveClient(std::shared_ptr<Client> client) {
     return;
   }
 
-  const std::set<int>& terminals = it->second->GetTerminalIds();
+  const std::map<uint32_t, uint32_t>& terminals = it->second->GetTerminals();
 
-  for(auto& terminal_id : it->second->GetTerminalIds()) {
-    _term_server->DeleteTerminal(terminal_id);
+  for(auto& it : terminals) {
+    _term_server->DeleteTerminal(it.second, it.first);
   }
 
   _client_sessions.erase(client->GetId());
+}
+
+bool WebAppServer::GetRemoteHostId(uint32_t client_id, uint32_t terminal_id, uint32_t& out_remote_host_id) {
+  if(_thread_loop->OnDifferentThread()) {
+    log()->error("Called WebAppServer::GetRemoteHostId on wrong thread");
+    return false;
+  }
+
+  auto it = _client_sessions.find(client_id);
+  if(it == _client_sessions.end()) {
+    DLOG(warn, "GetRemoteHostId : can't find session for client with id : {}", client_id);
+    return false;
+  }
+
+  const auto& terms = it->second->GetTerminals();
+  auto it_terms= terms.find(terminal_id);
+
+  if(it_terms == terms.end()) {
+    DLOG(warn, "GetRemoteHostId : can't find terminal with id : {}", terminal_id);
+    return false;
+  }
+
+  out_remote_host_id = it_terms->second;
+  return true;
 }

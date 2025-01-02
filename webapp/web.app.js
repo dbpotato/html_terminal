@@ -5,13 +5,14 @@ class WebApp {
     this.reconnectInfo = null;
   }
   init() {
+    this.terminalManager = new TerminalManager();
+    this.terminalManager.showNoTerminalsInfo();
+    document.body.appendChild(this.terminalManager.node);
+    this.reconnectInfo = new ReconnectInfo();
+    document.body.appendChild(this.reconnectInfo.node);
+
     this.messenger = new Messenger();
     this.messenger.createWs();
-    this.terminalManager = new TerminalManager();
-    this.reconnectInfo = new ReconnectInfo();
-
-    document.body.appendChild(this.terminalManager.node);
-    document.body.appendChild(this.reconnectInfo.node);
   }
 
   clear() {
@@ -20,24 +21,33 @@ class WebApp {
 
   onConnected() {
     this.reconnectInfo.disable();
-    this.messenger.send(MessageBuilder.makeNewTerminalReq());
+    this.terminalManager.show();
   }
 
   onDisconnected() {
-    this.clear();
+    this.terminalManager.hide();
     this.reconnectInfo.enable();
+    this.clear();
   }
 
-  onMessage(msg) {
-    var json = JSON.parse(msg);
-    if(json.type == "terminal_added") {
-      this.terminalManager.addTerminal(json.id);
-    } else if(json.type == "terminal_output") {
-      let bytes2str = String.fromCharCode.apply(null, new Uint16Array(json.output.bytes));
-      this.terminalManager.onTerminalOutput(json.id, bytes2str);
-    } else if(json.type == "terminal_closed") {
-      this.terminalManager.onTerminalClosed(json.id);
-    }
+  onHostConnected(hostId, hostIp, hostUserName, hostName) {
+    this.terminalManager.onHostConnected(hostId, hostIp, hostUserName, hostName);
+  }
+
+  onHostDisconnected(hostId) {
+    this.terminalManager.onHostDisconnected(hostId);
+  }
+
+  onTerminalAdded(hostId, terminalId) {
+    this.terminalManager.onTerminalAdded(hostId, terminalId);
+  }
+
+  onTerminalOutput(terminalId, msg) {
+    this.terminalManager.onTerminalOutput(terminalId, msg);
+  }
+
+  onTerminalClosed(terminalId) {
+    this.terminalManager.onTerminalClosed(terminalId);
   }
 
   reconnect() {

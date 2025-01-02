@@ -67,7 +67,7 @@ void JsonMsg::TryDetectType() {
   else if(!type.compare("terminal_key"))
     _type = Type::TERMINAL_KEY_EVENT;
   else if(!type.compare("terminal_resize"))
-    _type = Type::TERMINAL_RESIZE_EVENT;
+    _type = Type::TERMINAL_RESIZE;
 }
 
 JsonMsg::Type JsonMsg::GetType() {
@@ -104,18 +104,38 @@ int JsonMsg::ValueToInt(const nlohmann::json& json, const std::string& key) {
   return result;
 }
 
+std::string JsonMsg::MakeRemoteHostConnectedMsg(int host_id,
+                                            const std::string& host_ip,
+                                            const std::string& host_user_name,
+                                            const std::string& host_name) {
+  auto jobj = nlohmann::json::object();
+  jobj["type"] = "host_connected";
+  jobj["host_id"] = host_id;
+  jobj["host_ip"] = host_ip;
+  jobj["host_user_name"] = host_user_name;
+  jobj["host_name"] = host_name;
+  return jobj.dump();
+}
 
-std::string JsonMsg::MakeTerminalCreatedMsg(int terminal_id) {
+std::string JsonMsg::MakeClientDisconnectedMsg(int client_id) {
+  auto jobj = nlohmann::json::object();
+  jobj["type"] = "host_disconnected";
+  jobj["host_id"] = client_id;
+  return jobj.dump();
+}
+
+std::string JsonMsg::MakeTerminalCreatedMsg(int host_id, int terminal_id) {
   auto jobj = nlohmann::json::object();
   jobj["type"] = "terminal_added";
-  jobj["id"] = terminal_id;
+  jobj["host_id"] = host_id;
+  jobj["terminal_id"] = terminal_id;
   return jobj.dump();
 }
 
 std::string JsonMsg::MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data> output) {
   auto jobj = nlohmann::json::object();
   jobj["type"] = "terminal_output";
-  jobj["id"] = terminal_id;
+  jobj["terminal_id"] = terminal_id;
   std::vector<uint8_t> vec((uint8_t*)output->GetCurrentDataRaw(),
                           (uint8_t*)output->GetCurrentDataRaw() + (size_t)output->GetCurrentSize());
   jobj["output"] = nlohmann::json::binary(vec);
@@ -125,7 +145,7 @@ std::string JsonMsg::MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data
 std::string JsonMsg::MakeTerminalClosed(int terminal_id) {
   auto jobj = nlohmann::json::object();
   jobj["type"] = "terminal_closed";
-  jobj["id"] = terminal_id;
+  jobj["terminal_id"] = terminal_id;
   return jobj.dump();
 }
 

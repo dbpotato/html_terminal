@@ -17,7 +17,19 @@ class Messenger {
   }
 
   onWsMessage(msg) {
-    document.webApp.onMessage(msg.data);
+    var json = JSON.parse(msg.data);
+    if(json.type == "host_connected") {
+      document.webApp.onHostConnected(json.host_id, json.host_ip, json.host_user_name, json.host_name);
+    } else if(json.type == "host_disconnected") {
+      document.webApp.onHostDisconnected(json.host_id);
+    } else if(json.type == "terminal_added") {
+      document.webApp.onTerminalAdded(json.host_id, json.terminal_id);
+    } else if(json.type == "terminal_output") {
+      let bytes2str = String.fromCharCode.apply(null, new Uint16Array(json.output.bytes));
+      document.webApp.onTerminalOutput(json.terminal_id, bytes2str);
+    } else if(json.type == "terminal_closed") {
+      document.webApp.onTerminalClosed(json.terminal_id);
+    }
   }
 
   onWsClose() {

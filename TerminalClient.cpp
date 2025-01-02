@@ -31,8 +31,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "DataResource.h"
 #include "Connection.h"
 
+#include <cstdio>
+
 const int READ_BLOCK_HIGH = 10;
 const int READ_BLOCK_LOW = 5;
+const std::string TERMINAL_CLIENT_NAME_ENV = "TERMINAL_CLIENT_NAME";
 
 
 std::shared_ptr<TerminalClient> TerminalClient::Create(std::shared_ptr<Connection> connection,
@@ -119,10 +122,29 @@ bool TerminalClient::OnClientConnecting(std::shared_ptr<Client> client, NetError
 
 void TerminalClient::OnClientConnected(std::shared_ptr<Client> client) {
   _client = client;
+  SendClientInfoMsg();
 }
 
 void TerminalClient::OnClientClosed(std::shared_ptr<Client> client) {
   HandleDisconnected();
+}
+
+void TerminalClient::SendClientInfoMsg() {
+  char* user_name = std::getenv("USER");
+  char* client_name = std::getenv(TERMINAL_CLIENT_NAME_ENV.c_str());
+  const unsigned char separator = 0;
+
+  std::string str_user_name = user_name ? user_name : "Unknown";
+  std::string str_client_name = client_name ? client_name : "Unknown";
+
+  auto msg_data = std::make_shared<Data>(str_user_name.size() + str_client_name.size() + 1);
+  msg_data->Add(str_user_name);
+  msg_data->Add(1,&separator);
+  msg_data->Add(str_client_name);
+
+  auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::CLIENT_INFO,
+                                             std::make_shared<DataResource>(msg_data));
+  _client->Send(msg);
 }
 
 void TerminalClient::HandlePingMessage(std::shared_ptr<Client> client) {
@@ -170,7 +192,9 @@ void TerminalClient::HandleDeleteTerminal(std::shared_ptr<Data> msg_data) {
     DLOG(error, "TerminalClient::HandleDeleteTerminal : Failed to parse terminal_id");
     return;
   }
-  _term_handler->DeleteTerminal(terminal_id);
+  if(_term_handler) {
+    _term_handler->DeleteTerminal(terminal_id);
+  }
 }
 
 void TerminalClient::HandleResizeTerminal(std::shared_ptr<Data> msg_data) {
@@ -190,8 +214,9 @@ void TerminalClient::HandleResizeTerminal(std::shared_ptr<Data> msg_data) {
   data_retrieved = data_retrieved && msg_data->CopyTo(&terminal_id, 0, 4);
   data_retrieved = data_retrieved && msg_data->CopyTo(&width, 4, 2);
   data_retrieved = data_retrieved && msg_data->CopyTo(&height, 6, 2);
-
-  _term_handler->Resize(terminal_id, (int)width, (int)height);
+  if(_term_handler) {
+    _term_handler->Resize(terminal_id, (int)width, (int)height);
+  }
 }
 
 void TerminalClient::HandleTerminalWrite(std::shared_ptr<Data> msg_data) {
@@ -210,7 +235,9 @@ void TerminalClient::HandleTerminalWrite(std::shared_ptr<Data> msg_data) {
   }
 
   msg_data->AddOffset(4);
-  _term_handler->SendKeyEvent(terminal_id, msg_data->ToString());
+  if(_term_handler) {
+    _term_handler->SendKeyEvent(terminal_id, msg_data->ToString());
+  }
 }
 
 void TerminalClient::HandleDisconnected() {
@@ -264,5 +291,7 @@ void TerminalClient::EnableReadFromTerminals(bool enabled) {
     _thread->Post(std::bind(&TerminalClient::EnableReadFromTerminals, shared_this, enabled));
     return;
   }
-  _term_handler->EnableReadFromTerminals(enabled);
+  if(_term_handler) {
+    _term_handler->EnableReadFromTerminals(enabled);
+  }
 }

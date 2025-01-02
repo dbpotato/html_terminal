@@ -1,15 +1,20 @@
-:focus {outline:none;}
-::-moz-focus-inner {border:0;}
+:focus {
+  outline: none;
+}
+
+::-moz-focus-inner {
+  border: 0;
+}
 
 body {
- background-color: #fafafa;
- font-size : 15px;
- font-family : Arial;
- display: flex;
- flex-direction : column;
- height: 100vh;
- margin: 0px;
- align-items: center;
+  background-color: #fafafa;
+  font-size: 15px;
+  font-family: Arial;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0px;
+  align-items: center;
 }
 
 #script_holder {
@@ -17,12 +22,20 @@ body {
 }
 
 #terminal_manager {
-  width : 100%;
+  width: 100%;
   height: 100%;
   background-color: #ececec;
-  position:absolute;
+  position: absolute;
   display: flex;
-  flex-direction : column;
+  justify-content: center;
+  align-items: center;
+}
+
+#terminal_view {
+  width: 70%;
+  height: 90%;
+  display: flex;
+  flex-direction: row;
   justify-content: center;
   align-items: center;
 }
@@ -31,13 +44,33 @@ body {
   text-align: center;
 }
 
+#remoteHostList {
+  height: 85%;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#remoteHostOptions {
+  width: 10%;
+  height: 100%;
+  background-color: blue;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
 #reconnect_info {
-  width : 100%;
+  width: 100%;
   height: 100%;
   background-color: #fafafa;
-  position:relative;
+  position: relative;
   display: flex;
-  flex-direction : column;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
@@ -49,7 +82,7 @@ body {
 }
 
 .base_bt {
-  color : black;
+  color: black;
   border-radius: 10px;
   border: solid #8c8c8c 1px;
   display: flex;
@@ -59,22 +92,58 @@ body {
   padding-right: 8px;
   text-decoration: none;
   cursor: pointer;
-  height : 35px;
+  height: 35px;
 }
 
 .base_bt:hover {
   border: solid #8c8c8c 2px;
-  height : 33px;
+  height: 33px;
 }
 
 .terminal_node {
   display: flex;
-  margin-top: 25px;
-  margin-bottom: 25px;
-  height : 100%;
-  width : 70%;
-  flex-direction : column;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
 }
+
+.remote_host {
+  display: block;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #fff;
+  background-color: #337ab7;
+  border-radius: 5px;
+  width: 200px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+.remote_host:hover {
+  background-color: #66b2ff;
+}
+
+.remote_host.selected {
+  background-color: #0056b3;
+  color: white;
+  border: 2px solid #004085;
+}
+
+.remote_host.selected:hover {
+  background-color: #0056b3;
+}
+
+.remote_host_name {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.remote_host_user {
+  font-size: 12px;
+}
+
 
 .horizontal {
   display: flex;
@@ -87,4 +156,3 @@ body {
   flex-direction: column;
   justify-content: center;
 }
-

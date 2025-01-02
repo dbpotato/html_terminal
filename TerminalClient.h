@@ -76,6 +76,7 @@ protected:
                       const std::string& host);
   void Init();
   void ResolvePendingMsgUpdated();
+  void SendClientInfoMsg();
 
 private :
   std::shared_ptr<Connection> _connection;
