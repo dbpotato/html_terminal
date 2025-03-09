@@ -118,7 +118,7 @@ void WebAppServer::OnWsClientMessage(std::shared_ptr<Client> client, std::shared
         OnTerminalDelReq(client, json.ValueToInt("terminal_id"));
         break;
       case JsonMsg::Type::TERMINAL_KEY_EVENT:
-        OnTerminalKeyEvent(client, json.ValueToInt("id"), json.ValueToString("key"));
+        OnTerminalKeyEvent(client, json.ValueToInt("terminal_id"), json.ValueToString("key"));
         break;
       default:
         break;
@@ -157,20 +157,21 @@ void WebAppServer::OnTerminalResizeReq(std::shared_ptr<Client> client,
 
 void WebAppServer::OnTerminalDelReq(std::shared_ptr<Client> client, int terminal_id) {
   if(!IsClientOwningTerminal(client, terminal_id)) {
+    DLOG(warn, "TerminlalDelReq : invalid client / terminal pair : {}, {}", client->GetId(), terminal_id);
     return;
   }
 
   DLOG(info, "TerminlalDelReq : client id : {}, terminal id : {}", client->GetId(), terminal_id);
-
-  auto it = _client_sessions.find(client->GetId());
-  auto session = it->second;
-  session->DeleteTerminal(terminal_id);
 
   uint32_t remote_host_id = 0;
   if(!GetRemoteHostId(client->GetId(), terminal_id, remote_host_id)) {
     DLOG(warn, "OnTerminalDelReq Failed");
     return;
   }
+
+  auto it = _client_sessions.find(client->GetId());
+  auto session = it->second;
+  session->DeleteTerminal(terminal_id);
 
   _term_server->DeleteTerminal(remote_host_id, terminal_id);
 }
@@ -273,8 +274,6 @@ void WebAppServer::OnTerminalOutput(uint32_t client_id, uint32_t terminal_id, st
     _thread_loop->Post(std::bind(&WebAppServer::OnTerminalOutput, shared_from_this(), client_id, terminal_id, output));
     return;
   }
-
-  log()->info("WebAppServer::OnTerminalOutput");
 
   auto it = _client_sessions.find(client_id);
   if(it == _client_sessions.end()) {

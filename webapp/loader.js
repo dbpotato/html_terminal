@@ -8,6 +8,7 @@ class Loader {
       "message.builder.js",
       "messenger.js",
       "remote.host.js",
+      "remote.host.term.bt.js",
       "remote.host.list.js",
       "remote.host.options.js",
       "terminal.node.js",

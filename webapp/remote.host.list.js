@@ -50,8 +50,15 @@ class RemoteHostList extends View {
       return;
     }
 
+    if(this.currentHost == host) {
+      this.currentHost = null;
+    }
+
     this.removeObj(host.node);
     this.hosts.delete(hostId);
+    host.terminals.forEach(terminal => {
+      this.manager.deleteTerminal(terminal.id);
+    });
   }
 
   size() {

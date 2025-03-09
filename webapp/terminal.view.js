@@ -45,8 +45,10 @@ class TerminalView extends View {
       this.removeObj(this.currentTerminal.node);
     }
     this.currentTerminal = terminal;
-    this.addObj(this.currentTerminal.node);
-    terminal.focus();
+    if(terminal) {
+      this.addObj(this.currentTerminal.node);
+      terminal.focus();
+    }
   }
 
   onTerminalOutput(id, output) {
@@ -68,6 +70,10 @@ class TerminalView extends View {
     let terminal = this.getTerminalById(id);
     if(terminal == null) {
       return;
+    }
+
+    if(this.currentTerminal = terminal) {
+      this.currentTerminal = null;
     }
 
     terminal.deleteNode();

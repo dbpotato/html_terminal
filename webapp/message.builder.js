@@ -11,12 +11,12 @@ class MessageBuilder {
   }
 
   static makeKeyEvent(terminalId, keyEvent) {
-    var req = {type: "terminal_key", id: terminalId, key: keyEvent};
+    var req = {type: "terminal_key", terminal_id: terminalId, key: keyEvent};
     return JSON.stringify(req);
   }
 
   static makeCloseTerminalReq(terminalId) {
-    var req = {type: "terminal_del", id: terminalId};
+    var req = {type: "terminal_del", terminal_id: terminalId};
     return JSON.stringify(req);
   }
 };

@@ -2,6 +2,7 @@ class TerminalManager extends View {
   constructor() {
     super();
     this.hostList = null;
+    this.selectedHost = null;
     this.terminalView = null;
     this.hostOptions = null;
     this.noTerminalsInfo = null;
@@ -48,10 +49,19 @@ class TerminalManager extends View {
     this.hostList.addHost(hostId, hostIp, hostUserName, hostName);
     if(this.hostList.size() == 1) {
       console.log("Get hostList size is: " + this.hostList.size() + "hide NTI, send term req for : " + hostId);
-      var termReqMsg = MessageBuilder.makeNewTerminalReq(hostId);
-      document.webApp.messenger.send(termReqMsg);
+      this.sendNewTerminalRequest(hostId);
       this.hideNoTerminalsInfo();
     }
+  }
+
+  sendNewTerminalRequest(hostId){
+    let termReqMsg = MessageBuilder.makeNewTerminalReq(hostId);
+    document.webApp.messenger.send(termReqMsg);
+  }
+
+  removeTerminal(terminalId){
+    let termReqMsg = MessageBuilder.makeCloseTerminalReq(terminalId);
+    document.webApp.messenger.send(termReqMsg);
   }
 
   onHostDisconnected(hostId) {
@@ -71,14 +81,6 @@ class TerminalManager extends View {
     }
   }
 
-  getTerminalById(id) {
-    if(this.terminals.has(id)) {
-      return this.terminals.get(id);
-    } else {
-      return null;
-    }
-  }
-
   onTerminalAdded(hostId, terminalId) {
     console.log("Got Terminal : " + terminalId + " for host " + hostId)
     let terminal = this.terminalView.createTerminalNode(terminalId);
@@ -89,7 +91,7 @@ class TerminalManager extends View {
   }
 
   deleteTerminal(id) {
-    this.removeTerminal(id);
+    this.terminalView.removeTerminal(id);
     document.webApp.onUITerminalClosed(id);
   }
 
@@ -98,16 +100,6 @@ class TerminalManager extends View {
   }
 
   onTerminalClosed(id) {
-    this.removeTerminal(id);
-  }
-
-  removeTerminal(id) {
-    let terminal = this.getTerminalById(id);
-    if(terminal == null) {
-      return;
-    }
-
-    terminal.deleteNode();
-    this.terminals.delete(id);
+    this.terminalView.removeTerminal(id);
   }
 }
