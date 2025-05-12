@@ -1,5 +1,5 @@
 #[[
-Copyright (c) 2023 - 2024 Adam Kaniewski
+Copyright (c) 2023 - 2025 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -21,11 +21,11 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ]]
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.5)
 project(HTML_TERMINAL)
 
 
-set(CXX_FLAGS
+set(DEFAULT_CXX_FLAGS
  "-O2 \
  -std=gnu++17 \
  -Wall \
@@ -41,9 +41,8 @@ set(LD_FLAGS
    -ldl"
 )
 
-add_definitions(-DENABLE_DEBUG_LOGGER)
+#add_definitions(-DENABLE_DEBUG_LOGGER)
 
-set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 set(CMAKE_SYSTEM_NAME linux)
 set(DEFAULT_CXX "g++")
 
@@ -54,10 +53,18 @@ set(EXAMPLE_DIR "${SRC_DIR}/examples")
 if(DEFINED ENV{CUSTOM_CXX})
   message("Using user's compiler : " $ENV{CUSTOM_CXX})
   set(CMAKE_CXX_COMPILER $ENV{CUSTOM_CXX})
-else(DEFINED ENV{CUSTOM_CXX})
+else(DEFINED ENV{CXX})
   message("Using default compiler : " ${DEFAULT_CXX})
   set(CMAKE_CXX_COMPILER ${DEFAULT_CXX})
 endif(DEFINED ENV{CUSTOM_CXX})
+
+if(DEFINED ENV{CUSTOM_CXX_FLAGS})
+  message("Using user's CXX flags")
+  set(CMAKE_CXX_FLAGS $ENV{CUSTOM_CXX_FLAGS})
+else(DEFINED ENV{CXX})
+  message("Using default CXX flags")
+  set(CMAKE_CXX_FLAGS ${DEFAULT_CXX_FLAGS})
+endif(DEFINED ENV{CUSTOM_CXX_FLAGS})
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build_${CMAKE_CXX_COMPILER})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build_${CMAKE_CXX_COMPILER})
