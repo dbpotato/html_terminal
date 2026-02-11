@@ -197,7 +197,13 @@ void TerminalServer::OnClientRead(std::shared_ptr<Client> client, std::shared_pt
     case MessageType::PING:
       HandlePingMessage(client);
       break;
+    case MessageType::PONG :
+      break;
+    case MessageType::FILE_TRANSFER_INIT :
+      HandleFileTransferInit(client, msg_data);
+      break;
     default:
+      log()->warn("TerminalServer : Got Unexpected message type : {}", simple_msg->GetHeader()->_type);
       break;
   }
 }
@@ -222,11 +228,11 @@ bool TerminalServer::OnClientConnecting(std::shared_ptr<Client> client, NetError
 }
 
 void TerminalServer::OnClientConnected(std::shared_ptr<Client> client) {
-  ConnectionChecker::MonitorClient(client, shared_from_this());
 }
 
 void TerminalServer::SendPingToClient(std::shared_ptr<Client> client) {
-  client->Send(std::make_shared<SimpleMessage>((uint8_t)MessageType::PING));
+  auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::PING);
+  client->Send(msg);
 }
 
 void TerminalServer::CreateClient(std::shared_ptr<MonitorTask> task, const std::string& url, int port) {
@@ -243,6 +249,7 @@ void TerminalServer::HandleClientInfo(std::shared_ptr<Client> client, std::share
   std::string user_name((char*)msg_data->GetCurrentDataRaw());
   std::string host_name((char*)msg_data->GetCurrentDataRaw() + user_name.size() + 1,
                           (size_t)(msg_data->GetCurrentSize() - user_name.size() - 1));
+  ConnectionChecker::MonitorClient(client, shared_from_this());
   _webapp_server->OnRemoteHostInfoReceived(client->GetId(), client->GetIp(), user_name, host_name);
 }
 
@@ -298,22 +305,27 @@ void TerminalServer::HandleTerminalEnd(std::shared_ptr<Client> client, std::shar
     _thread->Post(std::bind(&TerminalServer::HandleTerminalEnd, shared_from_this(), client, msg_data));
     return;
   }
-
-  uint32_t client_id = client->GetId();
+  uint32_t remote_host_id = client->GetId();
   uint32_t terminal_id = 0;
   uint32_t app_client_id = 0;
   msg_data->CopyTo(&terminal_id, 0, 4);
 
-  if(!GetAppClinetId(client_id, terminal_id, app_client_id)) {
+  if(!GetAppClinetId(remote_host_id, terminal_id, app_client_id)) {
     DLOG(warn, "HandleTerminalEnd Failed");
     return;
   }
 
-  _webapp_server->OnTerminalClosed(app_client_id, terminal_id);
+  _webapp_server->OnTerminalClosed(app_client_id, terminal_id, remote_host_id);
 }
 
 void TerminalServer::HandlePingMessage(std::shared_ptr<Client> client) {
-  client->Send(std::make_shared<SimpleMessage>((uint8_t)MessageType::PONG));
+  auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::PONG);
+  client->Send(msg);
+}
+
+void TerminalServer::HandleFileTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data) {
+  FileTransferHandlerServer::HandleFileTransferInit(client, data);
+  _proxy_server->RemoveClient(client);
 }
 
 bool TerminalServer::GetAppClinetId(uint32_t client_id, uint32_t terminal_id, uint32_t& out_app_client_id) {
@@ -331,4 +343,31 @@ bool TerminalServer::GetAppClinetId(uint32_t client_id, uint32_t terminal_id, ui
     return true;
   }
   return false;
+}
+
+
+std::shared_ptr<FileTransfer> TerminalServer::CreateFileRequest(int remote_host_id, uint32_t file_transfer_id, const std::string& path, bool is_download_from_client) {
+  auto host_client = _proxy_server->GetClient((uint32_t)remote_host_id);
+  if(!host_client) {
+    DLOG(warn, "TerminalServer::CreateFileRequest : host_client doesn't exist");
+    return nullptr;
+  }
+
+  auto request = MakeNewTransferReq(host_client, file_transfer_id, path, is_download_from_client);
+  if(!request) {
+    DLOG(error, "TerminalServer::CreateFileRequest failed");
+  }
+  return request;
+}
+
+
+void TerminalServer::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) {
+  _webapp_server->OnFileTransferCompleted(file_transfer, msg, success);
+}
+void TerminalServer::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
+  _webapp_server->OnFileTransferDataReceived(file_transfer, msg);
+}
+
+std::shared_ptr<FileTransferHandler> TerminalServer::GetSptr() {
+  return shared_from_this();
 }

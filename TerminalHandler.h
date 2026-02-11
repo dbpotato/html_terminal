@@ -38,7 +38,8 @@ class TerminalHandler
     , public TerminalListener {
 public:
   TerminalHandler(std::shared_ptr<TerminalListener> parent_listener,
-                  std::shared_ptr<ThreadLoop> thread);
+                  std::shared_ptr<ThreadLoop> thread,
+                  const std::string& shell_cmd);
   bool CreateTerminal(uint32_t terminal_id);
   void DeleteTerminal(uint32_t terminal_id);
   void DeleteTerminals();
@@ -55,4 +56,5 @@ protected:
   std::shared_ptr<ThreadLoop> _thread;
   std::map<uint32_t, std::shared_ptr<Terminal>> _terminals;
   bool _read_enabled;
+  std::string _shell_cmd;
 };

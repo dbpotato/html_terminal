@@ -36,7 +36,7 @@ int main() {
   auto connection = Connection::CreateBasic();
   auto terminal_server = std::make_shared<TerminalServer>();
 
-  auto server_obj = connection->CreateServer(TERMINAL_SERVER_LISTEN_PORT, terminal_server);
+  auto server_obj = connection->CreateServer(TERMINAL_SERVER_LISTEN_PORT, std::static_pointer_cast<ClientManager>(terminal_server));
   if(!server_obj) {
     log()->error("Terminal Server failed to start at port : {}", TERMINAL_SERVER_LISTEN_PORT);
     return 1;

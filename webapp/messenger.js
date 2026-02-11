@@ -28,7 +28,9 @@ class Messenger {
       let bytes2str = String.fromCharCode.apply(null, new Uint16Array(json.output.bytes));
       document.webApp.onTerminalOutput(json.terminal_id, bytes2str);
     } else if(json.type == "terminal_closed") {
-      document.webApp.onTerminalClosed(json.terminal_id);
+      document.webApp.onTerminalClosed(json.host_id, json.terminal_id);
+    } else if(json.type == "directory_listing_received") {
+      document.webApp.onDirectoryListen(json.terminal_id, json.req_path, json.files);
     }
   }
 

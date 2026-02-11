@@ -5,6 +5,7 @@ class RemoteHostList extends View {
     this.currentHost = null;
     this.manager = terminalManager;
     this.createNode();
+    document.webApp.addEventListener(this);
   }
 
   clear() {
@@ -18,6 +19,16 @@ class RemoteHostList extends View {
     this.node.setAttribute("id", "remoteHostList");
   }
 
+  onEvent(appEvent) {
+    switch(appEvent.type) {
+      case "TerminalClosed" :
+        this.removeTerminalForHost(appEvent.hostId, appEvent.terminalId);
+        break;
+      default:
+        break;
+    }
+  }
+
   addHost(hostId, hostIp, hostUserName, hostName) {
     console.log("HostList size : " + this.hosts.size);
     let host = new RemoteHost(hostId, hostIp, hostUserName, hostName, this);
@@ -27,17 +38,25 @@ class RemoteHostList extends View {
 
   addTerminalForHost(hostId, terminal) {
     let host = this.getHostById(hostId);
-    if(host == null) {
+    if (host == null) {
       return;
     }
     host.addTerminal(terminal);
-    if(this.currentHost == null) {
+    if (this.currentHost == null) {
       this.onHostSelected(host);
     }
   }
 
+  removeTerminalForHost(hostId, terminalId) {
+    let host = this.getHostById(hostId);
+    if (host == null) {
+      return;
+    }
+    host.removeTerminalById(terminalId);
+  }
+
   getHostById(hostId) {
-    if(this.hosts.has(hostId)) {
+    if (this.hosts.has(hostId)) {
       return this.hosts.get(hostId);
     } else {
       return null;
@@ -46,11 +65,11 @@ class RemoteHostList extends View {
 
   removeHost(hostId) {
     let host = this.getHostById(hostId);
-    if(host == null) {
+    if (host == null) {
       return;
     }
 
-    if(this.currentHost == host) {
+    if (this.currentHost == host) {
       this.currentHost = null;
     }
 
@@ -71,9 +90,12 @@ class RemoteHostList extends View {
       this.currentHost.onDeselected();
     }
     this.currentHost = host;
-    if(this.currentHost != null) {
+    if(this.currentHost != null){
       this.currentHost.onSelected();
       this.manager.onHostSelected(host);
     }
+  }
+  onHostEmpty(host) {
+    this.manager.onHostEmpty(host);
   }
 }

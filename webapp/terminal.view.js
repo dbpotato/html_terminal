@@ -58,6 +58,13 @@ class TerminalView extends View {
     }
   }
 
+  onDirectoryListen(id, req_path, files) {
+    let terminal = this.getTerminalById(id);
+    if(terminal != null) {
+      terminal.fileModeNode.setDirectoryContent(req_path, files);
+    }
+  }
+
   getTerminalById(id) {
     if(this.terminals.has(id)) {
       return this.terminals.get(id);

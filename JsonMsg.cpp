@@ -68,6 +68,8 @@ void JsonMsg::TryDetectType() {
     _type = Type::TERMINAL_KEY_EVENT;
   else if(!type.compare("terminal_resize"))
     _type = Type::TERMINAL_RESIZE;
+  else if(!type.compare("file_req"))
+    _type = Type::FILE_TRANSFER_REQ;
 }
 
 JsonMsg::Type JsonMsg::GetType() {
@@ -142,10 +144,30 @@ std::string JsonMsg::MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data
   return jobj.dump();
 }
 
-std::string JsonMsg::MakeTerminalClosed(int terminal_id) {
+std::string JsonMsg::MakeTerminalClosed(int host_id, int terminal_id) {
   auto jobj = nlohmann::json::object();
   jobj["type"] = "terminal_closed";
+  jobj["host_id"] = host_id;
   jobj["terminal_id"] = terminal_id;
+  return jobj.dump();
+}
+
+std::string JsonMsg::MakeDirectoryListingMsg(int terminal_id, const std::string& req_path, const std::vector<DirectoryListing::FileInfo>& files) {
+  auto jobj = nlohmann::json::object();
+  jobj["type"] = "directory_listing_received";
+  jobj["terminal_id"] = terminal_id;
+  jobj["req_path"] = req_path;
+  auto jfile_array = nlohmann::json::array();
+
+  for(auto file : files) {
+    auto info = nlohmann::json::object();
+    info["name"] = file.name;
+    info["size"] = file.size;
+    info["last_mod"] = file.last_modified;
+    info["is_dir"] = file.is_directory;
+    jfile_array.push_back(info);
+  }
+  jobj["files"] = jfile_array;
   return jobj.dump();
 }
 

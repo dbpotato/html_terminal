@@ -30,9 +30,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 std::shared_ptr<TerminalClient> g_proxy_client;
 
-extern "C" void init(int port, const char* host) {
+extern "C" void init(int port, const char* host, const char* cmd) {
   if(!g_proxy_client) {
     auto connection = Connection::CreateBasic();
-    g_proxy_client = TerminalClient::Create(connection, port, host);
+    g_proxy_client = TerminalClient::Create(connection, port, host, cmd);
   }
 }

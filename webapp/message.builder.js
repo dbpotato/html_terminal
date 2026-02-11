@@ -19,4 +19,12 @@ class MessageBuilder {
     var req = {type: "terminal_del", terminal_id: terminalId};
     return JSON.stringify(req);
   }
+
+  static makeFileReq(terminalId, pathReq) {
+    if(pathReq == null || pathReq == undefined) {
+      pathReq = "";
+    }
+    var req = {type: "file_req", terminal_id: terminalId, path: pathReq};
+    return JSON.stringify(req);
+  }
 };

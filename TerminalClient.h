@@ -26,6 +26,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ConnectionChecker.h"
 #include "Terminal.h"
 #include "NetUtils.h"
+#include "FileTransferHandlerClient.h"
 
 #include <atomic>
 
@@ -40,12 +41,15 @@ class TerminalHandler;
 class TerminalClient
   : public MonitoringManager
   , public TerminalListener
+  , public FileTransferHandlerClient
   , public std::enable_shared_from_this<TerminalClient>  {
 public:
   static std::shared_ptr<TerminalClient> Create(std::shared_ptr<Connection> connection,
                                                     int port,
-                                                    const std::string& host);
+                                                    const std::string& host,
+                                                    const std::string& shell_cmd);
 
+  std::shared_ptr<FileTransferHandler> GetSptr() override;
   void OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) override;
   bool OnClientConnecting(std::shared_ptr<Client> client, NetError err) override;
   void OnClientConnected(std::shared_ptr<Client> client) override;
@@ -58,14 +62,17 @@ public:
   void OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) override;
   void OnTerminalEnd(std::shared_ptr<Terminal> terminal) override;
 
+  void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) override;
+  void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) override;
+
   void DeleteTerminals();
 
   void HandlePingMessage(std::shared_ptr<Client> client);
-  void HandleCreateTerminal(std::shared_ptr<Data> msg);
-  void HandleDeleteTerminal(std::shared_ptr<Data> msg);
-  void HandleResizeTerminal(std::shared_ptr<Data> msg);
-  void HandleTerminalWrite(std::shared_ptr<Data> msg);
-
+  void HandleCreateTerminal(std::shared_ptr<Data> msg_data);
+  void HandleDeleteTerminal(std::shared_ptr<Data> msg_data);
+  void HandleResizeTerminal(std::shared_ptr<Data> msg_data);
+  void HandleTerminalWrite(std::shared_ptr<Data> msg_data);
+  void HandleFileRequest(std::shared_ptr<Data> msg_data);
   void HandleDisconnected();
 
   void EnableReadFromTerminals(bool enabled);
@@ -73,7 +80,8 @@ public:
 protected:
   TerminalClient(std::shared_ptr<Connection> connection,
                       int port,
-                      const std::string& host);
+                      const std::string& host,
+                      const std::string& shell_cmd);
   void Init();
   void ResolvePendingMsgUpdated();
   void SendClientInfoMsg();
@@ -82,6 +90,7 @@ private :
   std::shared_ptr<Connection> _connection;
   int _port;
   std::string _host;
+  std::string _shell_cmd;
   std::atomic_int _pending_msg_counter;
   std::shared_ptr<TerminalHandler> _term_handler;
   std::shared_ptr<ThreadLoop> _thread;

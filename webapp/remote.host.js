@@ -9,7 +9,6 @@ class RemoteHost extends View {
     this.name = hostName;
     this.hostList = hostList;
     this.activeTerminal = null;
-    this.terminals = new Array();
     this.buttonsPanel = null;
     this.buttons = new Array();
     this.selectedBt = null;
@@ -54,6 +53,17 @@ class RemoteHost extends View {
   }
 
   selectTermBt(termButton) {
+    if(this.selectedBt == termButton) {
+      if(termButton.state == RemoteHostTermButton.State.TERMINAL) {
+        termButton.terminal.switchView(true);
+        termButton.setState(RemoteHostTermButton.State.FILE_LIST);
+      } else if(termButton.state == RemoteHostTermButton.State.FILE_LIST) {
+        termButton.terminal.switchView(false);
+        termButton.setState(RemoteHostTermButton.State.TERMINAL);
+      }
+      return;
+    }
+
     if(this.selectedBt != null) {
       this.selectedBt.onDeselected();
     }
@@ -74,14 +84,45 @@ class RemoteHost extends View {
   }
 
   onTermBtCloseClicked(termButton) {
+    this.removeTerminalButton(termButton);
+    document.webApp.terminalManager.removeTerminal(termButton.terminal.id);
+  }
+
+  addTerminal(terminal) {
+    if(this.connectingBt == null) {
+      this.activeTerminal = terminal;
+      this.selectedBt = this.addTermBt(terminal);
+      this.selectedBt.setState(RemoteHostTermButton.State.TERMINAL);
+      this.selectedBt.onSelected();
+      this.connectingBt = this.addTermBt(null);
+    } else {
+      let connectBt = this.connectingBt;
+      this.connectingBt = null;
+
+      connectBt.setTerminal(terminal);
+      connectBt.setState(RemoteHostTermButton.State.TERMINAL);
+      this.selectTermBt(connectBt);
+
+      if(this.buttons.length < 4) {
+        this.connectingBt = this.addTermBt(null);
+      }
+    }
+  }
+
+  removeTerminalById(terminalId) {
+    let termButton = null;
+    this.buttons.forEach(button => {
+      if(button.terminal != null && button.terminal.id == terminalId) {
+        termButton = button;
+      }
+    });
+    this.removeTerminalButton(termButton);
+  }
+
+  removeTerminalButton(termButton){
     this.buttonsPanel.removeChild(termButton.node);
 
-    let index = this.terminals.indexOf(termButton.terminal);
-    if(index > -1) {
-      this.terminals.splice(index, 1);
-    }
-
-    index = this.buttons.indexOf(termButton);
+    let index = this.buttons.indexOf(termButton);
     if(index > -1) {
       this.buttons.splice(index, 1);
     }
@@ -92,38 +133,9 @@ class RemoteHost extends View {
 
     if(this.buttons.length > 1) {
       this.selectTermBt(this.buttons[this.buttons.length - 2]);
-    }
-    document.webApp.terminalManager.removeTerminal(termButton.terminal.id);
-  }
-
-  addTerminal(terminal) {
-    this.terminals.push(terminal);
-    if(this.connectingBt == null) {
-      this.activeTerminal = terminal;
-      this.selectedBt = this.addTermBt(terminal);
-      this.selectedBt.setState(RemoteHostTermButton.State.ACTIVATED);
-      this.selectedBt.onSelected();
-      this.connectingBt = this.addTermBt(null);
     } else {
-      let connectBt = this.connectingBt;
-      this.connectingBt = null;
-
-      connectBt.setTerminal(terminal);
-      connectBt.setState(RemoteHostTermButton.State.ACTIVATED);
-      this.selectTermBt(connectBt);
-
-      if(this.terminals.length < 4) {
-        this.connectingBt = this.addTermBt(null);
-      }
+      this.hostList.onHostEmpty(this);
     }
-  }
-
-  getTerminalsSize() {
-    return this.terminals.length;
-  }
-
-  getTerminalAt(index) {
-    return this.terminals[index];
   }
 
   setActiveTerminal(terminal) {

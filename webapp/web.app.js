@@ -3,7 +3,9 @@ class WebApp {
     this.messenger = null;
     this.terminalManager = null;
     this.reconnectInfo = null;
+    this.listeners = new Array();
   }
+
   init() {
     this.terminalManager = new TerminalManager();
     this.terminalManager.showNoTerminalsInfo();
@@ -13,6 +15,23 @@ class WebApp {
 
     this.messenger = new Messenger();
     this.messenger.createWs();
+  }
+
+  addEventListener(listener) {
+    this.listeners.push(listener);
+  }
+
+  removeEventListener(listener) {
+    let index = this.listeners.indexOf(listener);
+    this.listeners.splice(index, 1);
+  }
+
+  pushEvent(sender, appEvent) {
+    this.listeners.forEach(listener => {
+      if(listener != sender) {
+        listener.onEvent(appEvent);
+      }
+    });
   }
 
   clear() {
@@ -46,8 +65,13 @@ class WebApp {
     this.terminalManager.onTerminalOutput(terminalId, msg);
   }
 
-  onTerminalClosed(terminalId) {
+  onTerminalClosed(host_id, terminalId) {
+    this.pushEvent(this, new AppEventTerminalClosed(host_id, terminalId));
     this.terminalManager.onTerminalClosed(terminalId);
+  }
+
+  onDirectoryListen(terminalId, req_path, files) {
+    this.terminalManager.onDirectoryListen(terminalId, req_path, files);
   }
 
   reconnect() {

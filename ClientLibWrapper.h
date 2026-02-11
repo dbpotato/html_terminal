@@ -38,8 +38,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static const int DEFAULT_TERMINAL_SERVER_PORT = 4476;
 static const std::string DEFAULT_TERMINAL_SERVER_HOST = "localhost";
+static const std::string DEFAULT_TERMINAL_SHELL_CMD = "/bin/bash";
 static const std::string ENV_SERVER_HOST_VAR_NAME = "TERMINAL_SERVER_HOST";
 static const std::string ENV_SERVER_PORT_VAR_NAME = "TERMINAL_SERVER_PORT";
+static const std::string ENV_TERMINAL_SHELL_CMD  = "TERMINAL_SHELL_CMD";
 
 std::string getEnvVar( std::string const & key ) {
   char * val = getenv( key.c_str() );
@@ -56,14 +58,19 @@ private:
       printf("TerminalClientWrapper : Can't load libterm_client.so %s\n", dlerror());
     }
     else {
-      _init = (void(*)(int, const char*)) dlsym(_lib_handler, "init");
+      _init = (void(*)(int, const char*, const char*)) dlsym(_lib_handler, "init");
 
       if(_init) {
         std::string host = getEnvVar(ENV_SERVER_HOST_VAR_NAME);
+        std::string cmd = getEnvVar(ENV_TERMINAL_SHELL_CMD);
         int port = DEFAULT_TERMINAL_SERVER_PORT;
 
-        if(host.empty()){
+        if(host.empty()) {
           host = DEFAULT_TERMINAL_SERVER_HOST;
+        }
+
+        if(cmd.empty()) {
+          cmd = DEFAULT_TERMINAL_SHELL_CMD;
         }
 
         std::string port_str = getEnvVar(ENV_SERVER_PORT_VAR_NAME);
@@ -71,7 +78,7 @@ private:
           port = atoi(port_str.c_str());
         }
 
-        _init(port, host.c_str());
+        _init(port, host.c_str(), cmd.c_str());
         _is_valid = true;
       }
       else {
@@ -87,7 +94,7 @@ public:
   }
 
 protected:
-  void(*_init)(int, const char*);
+  void(*_init)(int, const char*, const char*);
   bool _is_valid;
   void* _lib_handler;
 };

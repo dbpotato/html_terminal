@@ -40,19 +40,22 @@ const std::string TERMINAL_CLIENT_NAME_ENV = "TERMINAL_CLIENT_NAME";
 
 std::shared_ptr<TerminalClient> TerminalClient::Create(std::shared_ptr<Connection> connection,
                                                                   int port,
-                                                                  const std::string& host) {
+                                                                  const std::string& host,
+                                                                  const std::string& shell_cmd) {
   std::shared_ptr<TerminalClient> client;
-  client.reset(new TerminalClient(connection, port, host));
+  client.reset(new TerminalClient(connection, port, host, shell_cmd));
   client->Init();
   return client;
 }
 
 TerminalClient::TerminalClient(std::shared_ptr<Connection> connection,
                       int port,
-                      const std::string& host)
+                      const std::string& host,
+                      const std::string& shell_cmd)
     : _connection(connection)
     , _port(port)
     , _host(host)
+    , _shell_cmd(shell_cmd)
     , _pending_msg_counter(0) {
   _thread = std::make_shared<ThreadLoop>();
   _thread->Init();
@@ -62,8 +65,13 @@ void TerminalClient::Init() {
   ConnectionChecker::MointorUrl(_host, _port, shared_from_this());
 }
 
+std::shared_ptr<FileTransferHandler> TerminalClient::GetSptr() {
+  return shared_from_this();
+}
+
 void TerminalClient::SendPingToClient(std::shared_ptr<Client> client) {
-  client->Send(std::make_shared<SimpleMessage>((uint8_t)MessageType::PING));
+  auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::PING);
+  client->Send(msg);
 }
 
 void TerminalClient::CreateClient(std::shared_ptr<MonitorTask> task, const std::string& url, int port) {
@@ -71,6 +79,7 @@ void TerminalClient::CreateClient(std::shared_ptr<MonitorTask> task, const std::
 }
 
 void TerminalClient::OnClientUnresponsive(std::shared_ptr<Client> client) {
+  DLOG(warn, "Connection unresponsive : {}", client->GetId());
   HandleDisconnected();
 }
 
@@ -87,6 +96,8 @@ void TerminalClient::OnClientRead(std::shared_ptr<Client> client, std::shared_pt
   switch(MessageType::TypeFromInt(msg_header->_type)) {
     case MessageType::PING:
       HandlePingMessage(client);
+      break;
+    case MessageType::PONG:
       break;
     case MessageType::ON_TERMINAL_READ_ACK:
       {
@@ -105,6 +116,9 @@ void TerminalClient::OnClientRead(std::shared_ptr<Client> client, std::shared_pt
       break;
     case MessageType::ON_TERMINAL_WRITE:
       HandleTerminalWrite(msg_data);
+      break;
+    case MessageType::FILE_TRANSFER_REQ:
+      HandleFileRequest(msg_data);
       break;
     default:
       break;
@@ -148,7 +162,8 @@ void TerminalClient::SendClientInfoMsg() {
 }
 
 void TerminalClient::HandlePingMessage(std::shared_ptr<Client> client) {
-  client->Send(std::make_shared<SimpleMessage>((uint8_t)MessageType::PONG));
+  auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::PONG);
+  client->Send(msg);
 }
 
 void TerminalClient::HandleCreateTerminal(std::shared_ptr<Data> msg_data) {
@@ -166,7 +181,7 @@ void TerminalClient::HandleCreateTerminal(std::shared_ptr<Data> msg_data) {
   }
 
   if(!_term_handler) {
-    _term_handler = std::make_shared<TerminalHandler>(shared_this, _thread);
+    _term_handler = std::make_shared<TerminalHandler>(shared_this, _thread, _shell_cmd);
   }
 
   uint8_t result = (uint8_t)_term_handler->CreateTerminal(terminal_id);
@@ -267,7 +282,6 @@ void TerminalClient::OnTerminalEnd(std::shared_ptr<Terminal> terminal) {
 }
 
 void TerminalClient::DeleteTerminals() {
-  DLOG(info, "DeleteTerminals");
   auto shared_this = std::static_pointer_cast<TerminalClient>(shared_from_this());
   if(_thread->OnDifferentThread()) {
     _thread->Post(std::bind(&TerminalClient::DeleteTerminals, shared_this));
@@ -294,4 +308,35 @@ void TerminalClient::EnableReadFromTerminals(bool enabled) {
   if(_term_handler) {
     _term_handler->EnableReadFromTerminals(enabled);
   }
+}
+
+void TerminalClient::HandleFileRequest(std::shared_ptr<Data> msg_data) {
+  uint32_t req_id = 0;
+  uint8_t is_download_from_client = 0;
+  std::string path;
+  bool data_retrieved = true;
+
+  data_retrieved = data_retrieved && msg_data->CopyTo(&req_id, 0, 4);
+  data_retrieved = data_retrieved && msg_data->CopyTo(&is_download_from_client, 4, 1);
+
+  if(data_retrieved) {
+    msg_data->SetOffset(5);
+    path = msg_data->ToString();
+    data_retrieved = !path.empty();
+  }
+
+  if(!data_retrieved) {
+    DLOG(error, "HandleFileRequest : data error");
+    return;
+  }
+
+  MakeFileTransferRequest(req_id, is_download_from_client, path, _connection, _host, _port);
+}
+
+void TerminalClient::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) {
+  //TODO
+}
+
+void TerminalClient::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
+  //TODO
 }

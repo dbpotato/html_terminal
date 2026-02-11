@@ -81,12 +81,19 @@ class TerminalManager extends View {
     }
   }
 
+  onHostEmpty(host) {
+    if(host == this.hostList.currentHost) {
+      this.terminalView.setTerminal(null);
+    }
+  }
+
   onTerminalAdded(hostId, terminalId) {
     console.log("Got Terminal : " + terminalId + " for host " + hostId)
     let terminal = this.terminalView.createTerminalNode(terminalId);
     if(terminal == null) {
       return;
     }
+
     this.hostList.addTerminalForHost(hostId, terminal);
   }
 
@@ -101,5 +108,9 @@ class TerminalManager extends View {
 
   onTerminalClosed(id) {
     this.terminalView.removeTerminal(id);
+  }
+
+  onDirectoryListen(id, req_path, files) {
+    this.terminalView.onDirectoryListen(id, req_path, files);
   }
 }

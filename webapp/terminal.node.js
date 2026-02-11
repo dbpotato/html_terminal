@@ -1,10 +1,25 @@
+class TerminalContainer extends View {
+  constructor() {
+    super();
+    this.createNode();
+  }
+  createNode() {
+    super.createNode();
+    this.node.setAttribute("class", "terminal_container");
+  }
+}
+
 class TerminalNode extends View {
-    constructor(terminalId) {
+    constructor(terminalId, hostId) {
       super();
       this.terminal = null;
       this.fitAddon = null;
       this.resizeTimout = null;
       this.id = terminalId;
+      this.hostId = hostId;
+      this.terminalContainer = null;
+      this.fileModeNode = null;
+      this.fileModeActivated = false;
       this.createNode();
       this.createTerm(terminalId);
     }
@@ -12,6 +27,11 @@ class TerminalNode extends View {
     createNode() {
       super.createNode();
       this.node.setAttribute("class", "terminal_node");
+      this.terminalContainer = new TerminalContainer();
+      this.fileModeNode = new FileModeNode(this.id);
+      this.addObj(this.terminalContainer.node);
+      this.addObj(this.fileModeNode.node);
+      this.switchView(this.fileModeActivated);
     }
 
     createTerm(id) {
@@ -25,14 +45,14 @@ class TerminalNode extends View {
 
       this.fitAddon = new FitAddon.FitAddon();
       this.terminal.loadAddon(this.fitAddon);
-      this.terminal.open(this.node);
+      this.terminal.open(this.terminalContainer.node);
 
       new ResizeObserver(() => {
         clearTimeout(this.resizeTimout);
         this.resizeTimout = setTimeout(function() {
           this.fitAddon.fit();
         }.bind(this), 250);
-      }).observe(this.node);
+      }).observe(this.terminalContainer.node);
 
       setTimeout(function() {
           this.terminal.focus();
@@ -41,6 +61,18 @@ class TerminalNode extends View {
   
       this.terminal.onData(e => {this.onTermData(e);});
       this.terminal.onResize(e => {this.onTermResize(e);});
+    }
+
+    switchView(toFileModeView) {
+      if(toFileModeView) {
+        this.terminalContainer.hide();
+        this.fileModeNode.show();
+        this.fileModeActivated = true;
+      } else {
+        this.terminalContainer.show();
+        this.fileModeNode.hide();
+        this.fileModeActivated = false;
+      }
     }
 
     fit() {

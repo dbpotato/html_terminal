@@ -48,7 +48,6 @@ set(DEFAULT_CXX "g++")
 
 set(COMMON_DIR "${PROJECT_SOURCE_DIR}/common")
 set(SRC_DIR "${PROJECT_SOURCE_DIR}")
-set(EXAMPLE_DIR "${SRC_DIR}/examples")
 
 if(DEFINED ENV{CUSTOM_CXX})
   message("Using user's compiler : " $ENV{CUSTOM_CXX})
@@ -111,10 +110,18 @@ set(COMMON
   ${COMMON_DIR}/tools/utils/Data.cpp
   ${COMMON_DIR}/tools/utils/DataResource.cpp
   ${COMMON_DIR}/tools/utils/TapeCutter.cpp
+) 
+
+set (FILE_TRANSFER
+  ${SRC_DIR}/FileTransfer.cpp
+  ${SRC_DIR}/FileTransferHandlerServer.cpp
+  ${SRC_DIR}/FileTransferHandlerClient.cpp
+  ${COMMON_DIR}/tools/utils/DirectoryListing.cpp
 )
 
 set(SERVER
   ${COMMON}
+  ${FILE_TRANSFER}
   ${COMMON_DIR}/third_party/cpp-base64/base64.cpp
   ${COMMON_DIR}/tools/net/http/HttpDataCutter.cpp
   ${COMMON_DIR}/tools/net/http/HttpDataParser.cpp
@@ -130,7 +137,7 @@ set(SERVER
   ${COMMON_DIR}/tools/net/http/websocket/common/WebsocketMessageBuilder.cpp
   ${COMMON_DIR}/tools/net/http/websocket/common/WebsocketFragmentBuilder.cpp
   ${SRC_DIR}/control_server.cpp
-  ${SRC_DIR}/Session.cpp
+  ${SRC_DIR}/ActiveSessions.cpp
   ${SRC_DIR}/JsonMsg.cpp
   ${SRC_DIR}/TerminalServer.cpp
   ${SRC_DIR}/WebAppData.cpp
@@ -144,6 +151,8 @@ set(CLIENT
 
 set(CLIENT_LIB
   ${COMMON}
+  ${FILE_TRANSFER}
+  ${COMMON_DIR}/tools/thread/AsyncTask.cpp
   ${COMMON_DIR}/tools/system/Terminal.cpp
   ${SRC_DIR}/ClientLib.cpp
   ${SRC_DIR}/TerminalClient.cpp

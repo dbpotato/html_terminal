@@ -31,9 +31,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Client.h"
 #include "Terminal.h"
 #include "ConnectionChecker.h"
+#include "FileTransferHandlerServer.h"
 
 class WebAppServer;
-class TerminalHandler;
 class ThreadLoop;
 class Server;
 
@@ -51,8 +51,9 @@ private:
 };
 
 class TerminalServer
-  : public std::enable_shared_from_this<TerminalServer>
-  , public MonitoringManager {
+  : public MonitoringManager
+  , public FileTransferHandlerServer
+  , public std::enable_shared_from_this<TerminalServer> {
 
 public:
   void Init(std::shared_ptr<WebAppServer> server_impl,
@@ -72,6 +73,14 @@ public:
   void CreateClient(std::shared_ptr<MonitorTask> task, const std::string& url, int port) override;
   void OnClientUnresponsive(std::shared_ptr<Client> client) override;
 
+  std::shared_ptr<FileTransfer> CreateFileRequest(int remote_host_id, uint32_t file_transfer_id, const std::string& path, bool is_download_from_client);
+  void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) override;
+  void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) override;
+  std::shared_ptr<FileTransferHandler> GetSptr() override;
+
+protected:
+  void HandleFileTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data) override;
+
 private:
   uint32_t NextId();
   void HandleClientInfo(std::shared_ptr<Client> client, std::shared_ptr<Data> msg_data);
@@ -83,7 +92,6 @@ private:
   bool GetAppClinetId(uint32_t remote_host_id, uint32_t terminal_id, uint32_t& out_app_client_id);
 
   std::shared_ptr<WebAppServer> _webapp_server;
-  std::shared_ptr<TerminalHandler> _term_handler;
   std::map<uint32_t, RemoteHost> _remote_hosts;
   static std::atomic<uint32_t> _id_counter;
   std::shared_ptr<ThreadLoop> _thread;

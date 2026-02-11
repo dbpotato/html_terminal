@@ -24,6 +24,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #pragma once
 
 #include "nlohmann/json.hpp"
+#include "DirectoryListing.h"
 
 #include <memory>
 #include <string>
@@ -40,21 +41,23 @@ public:
     TERMINAL_ADD,
     TERMINAL_DEL,
     TERMINAL_RESIZE,
-    TERMINAL_KEY_EVENT
+    TERMINAL_KEY_EVENT,
+    FILE_TRANSFER_REQ,
   };
 
   JsonMsg();
   bool Parse(const std::string& str);
   std::string ToString();
   Type GetType();
-  static std::string MakeRemoteHostConnectedMsg(int client_id,
+  static std::string MakeRemoteHostConnectedMsg(int remote_host_id,
                                             const std::string& client_ip,
                                             const std::string& client_user_name,
                                             const std::string& client_name);
-  static std::string MakeClientDisconnectedMsg(int client_id);
-  static std::string MakeTerminalCreatedMsg(int client_id, int terminal_id);
+  static std::string MakeClientDisconnectedMsg(int remote_host_id);
+  static std::string MakeTerminalCreatedMsg(int remote_host_id, int terminal_id);
   static std::string MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data> output);
-  static std::string MakeTerminalClosed(int terminal_id);
+  static std::string MakeTerminalClosed(int terminal_id, int remote_host_id);
+  static std::string MakeDirectoryListingMsg(int terminal_id, const std::string& req_path, const std::vector<DirectoryListing::FileInfo>& files);
   static std::string Empty();
   int ValueToInt(const std::string& key);
   std::string ValueToString(const std::string& key);

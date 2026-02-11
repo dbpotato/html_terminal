@@ -4,7 +4,9 @@ class Loader {
     this.scripts = [
       "addon-fit.js",
       "xterm.js",
+      "app.event.js",
       "view.js",
+      "filemode.node.js",
       "message.builder.js",
       "messenger.js",
       "remote.host.js",
