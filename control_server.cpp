@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Adam Kaniewski
+Copyright (c) 2023 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -21,6 +21,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+#include <string>
 #include <unistd.h>
 
 #include "Connection.h"
@@ -31,10 +32,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 const int WEB_APP_LISTEN_PORT = 8080;
 const int TERMINAL_SERVER_LISTEN_PORT = 4476;
+const std::string LISTEN_FLAG = "--listen";
 
-int main() {
+int main(int argc, char** args) {
   auto connection = Connection::CreateBasic();
   auto terminal_server = std::make_shared<TerminalServer>();
+  bool web_app_listen_all_connections = false;
 
   auto server_obj = connection->CreateServer(TERMINAL_SERVER_LISTEN_PORT, std::static_pointer_cast<ClientManager>(terminal_server));
   if(!server_obj) {
@@ -42,8 +45,17 @@ int main() {
     return 1;
   }
 
+  if(argc > 1) {
+    for(int i = 1; i < argc; ++i) {
+      if(!LISTEN_FLAG.compare(args[i])) {
+        web_app_listen_all_connections = true;
+        break;
+      }
+    }
+  }
+
   auto ws_server = std::make_shared<WebsocketServer>();
-  auto web_app_server = std::make_shared<WebAppServer>(terminal_server);
+  auto web_app_server = std::make_shared<WebAppServer>(terminal_server, web_app_listen_all_connections);
 
   terminal_server->Init(web_app_server, server_obj);
   bool web_app_started = ws_server->Init(connection, web_app_server, web_app_server, WEB_APP_LISTEN_PORT);

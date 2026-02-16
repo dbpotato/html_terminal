@@ -24,6 +24,9 @@ class RemoteHostList extends View {
       case "TerminalClosed" :
         this.removeTerminalForHost(appEvent.hostId, appEvent.terminalId);
         break;
+      case "HostSelected" :
+        this.onHostSelected(appEvent.host);
+        break;
       default:
         break;
     }
@@ -34,17 +37,18 @@ class RemoteHostList extends View {
     let host = new RemoteHost(hostId, hostIp, hostUserName, hostName, this);
     this.hosts.set(hostId, host);
     this.addObj(host.node);
+    if(this.hosts.size == 1) {
+      this.currentHost = host;
+      this.currentHost.onSelected();
+    }
   }
 
-  addTerminalForHost(hostId, terminal) {
+  addTerminalForHost(hostId, terminalNode) {
     let host = this.getHostById(hostId);
     if (host == null) {
       return;
     }
-    host.addTerminal(terminal);
-    if (this.currentHost == null) {
-      this.onHostSelected(host);
-    }
+    host.addTerminal(terminalNode);
   }
 
   removeTerminalForHost(hostId, terminalId) {
@@ -85,14 +89,12 @@ class RemoteHostList extends View {
   }
 
   onHostSelected(host) {
-    console.log("RemoteHostList::onHostSelected : " + host);
     if(this.currentHost != null){
       this.currentHost.onDeselected();
     }
     this.currentHost = host;
     if(this.currentHost != null){
       this.currentHost.onSelected();
-      this.manager.onHostSelected(host);
     }
   }
   onHostEmpty(host) {

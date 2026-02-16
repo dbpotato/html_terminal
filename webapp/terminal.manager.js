@@ -7,6 +7,7 @@ class TerminalManager extends View {
     this.hostOptions = null;
     this.noTerminalsInfo = null;
     this.createNode();
+    document.webApp.addEventListener(this);
   }
 
   createNode() {
@@ -23,13 +24,30 @@ class TerminalManager extends View {
     this.noTerminalsInfo.setId("terminal_manager_info_text");
     this.noTerminalsInfo.node.innerHTML = "Currently there are no connected terminal clients.<br>Wait, no need for reload.";
     this.addObj(this.noTerminalsInfo.node);
-
-    //this.showNoTerminalsInfo();
   }
 
   clear() {
     this.hostList.clear();
     this.terminalView.clear();
+  }
+
+  onEvent(appEvent) {
+    switch(appEvent.type) {
+      case "HostSelected" :
+        this.onHostSelected(appEvent.host);
+        break;
+      case "TerminalAdded" :
+        this.onTerminalAdded(appEvent.hostId, appEvent.terminalId);
+        break;
+      case "TerminalSelected" :
+        this.onTerminalSelected(appEvent.terminalNode);
+        break;
+      case "TerminalClosed" :
+        this.onTerminalClosed(appEvent.hostId, appEvent.terminalId);
+        break;
+      default:
+        break;
+    }
   }
 
   showNoTerminalsInfo() {
@@ -59,7 +77,7 @@ class TerminalManager extends View {
     document.webApp.messenger.send(termReqMsg);
   }
 
-  removeTerminal(terminalId){
+  terminalCloseRequested(terminalId){
     let termReqMsg = MessageBuilder.makeCloseTerminalReq(terminalId);
     document.webApp.messenger.send(termReqMsg);
   }
@@ -81,20 +99,29 @@ class TerminalManager extends View {
     }
   }
 
+  onTerminalSelected(terminalNode){
+    this.terminalView.setTerminal(terminalNode);
+  }
+
   onHostEmpty(host) {
     if(host == this.hostList.currentHost) {
       this.terminalView.setTerminal(null);
     }
   }
 
+  onTerminalClosed(hostId, terminalId) {
+    this.terminalView.removeTerminal(terminalId);
+  }
+
   onTerminalAdded(hostId, terminalId) {
-    console.log("Got Terminal : " + terminalId + " for host " + hostId)
-    let terminal = this.terminalView.createTerminalNode(terminalId);
-    if(terminal == null) {
+    let terminalNode = this.terminalView.createTerminalNode(terminalId);
+    if(terminalNode == null) {
       return;
     }
-
-    this.hostList.addTerminalForHost(hostId, terminal);
+    this.hostList.addTerminalForHost(hostId, terminalNode);
+    if(this.hostList.currentHost.id == hostId) {
+      this.terminalView.setTerminal(this.hostList.currentHost.activeTerminal);
+    }
   }
 
   deleteTerminal(id) {
@@ -104,10 +131,6 @@ class TerminalManager extends View {
 
   onTerminalOutput(id, output) {
     this.terminalView.onTerminalOutput(id, output);
-  }
-
-  onTerminalClosed(id) {
-    this.terminalView.removeTerminal(id);
   }
 
   onDirectoryListen(id, req_path, files) {

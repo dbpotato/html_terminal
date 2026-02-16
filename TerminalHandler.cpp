@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Adam Kaniewski
+Copyright (c) 2023 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -127,6 +127,11 @@ void TerminalHandler::OnTerminalRead(std::shared_ptr<Terminal> terminal, std::sh
 }
 
 void TerminalHandler::OnTerminalEnd(std::shared_ptr<Terminal> terminal) {
+  if(_thread->OnDifferentThread()) {
+    _thread->Post(std::bind(&TerminalHandler::OnTerminalEnd, shared_from_this(), terminal));
+    return;
+  }
   DLOG(info, "Ended : {}", terminal->GetId());
+  DeleteTerminal(terminal->GetId());
   _parent_listener->OnTerminalEnd(terminal);
 }

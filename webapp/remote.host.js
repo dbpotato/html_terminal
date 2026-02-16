@@ -70,7 +70,7 @@ class RemoteHost extends View {
     this.selectedBt = termButton;
     this.activeTerminal = termButton.terminal;
     termButton.onSelected();
-    this.hostList.onHostSelected(this);
+    document.webApp.pushEvent(this, new AppEventTerminalSelected(this.activeTerminal));
   }
 
   onTermBtSelectClicked(termButton) {
@@ -85,7 +85,7 @@ class RemoteHost extends View {
 
   onTermBtCloseClicked(termButton) {
     this.removeTerminalButton(termButton);
-    document.webApp.terminalManager.removeTerminal(termButton.terminal.id);
+    document.webApp.terminalManager.terminalCloseRequested(termButton.terminal.id);
   }
 
   addTerminal(terminal) {
@@ -116,7 +116,14 @@ class RemoteHost extends View {
         termButton = button;
       }
     });
-    this.removeTerminalButton(termButton);
+    if(termButton != null) {
+      if(termButton.terminal == this.activeTerminal) {
+        this.activeTerminal = null;
+      }
+      this.removeTerminalButton(termButton);
+    } else {
+      console.log("cant find button for terminalId : " + terminalId);
+    }
   }
 
   removeTerminalButton(termButton){
@@ -143,7 +150,7 @@ class RemoteHost extends View {
   }
 
   onClicked() {
-    this.hostList.onHostSelected(this);
+    document.webApp.pushEvent(this, new AppEventHostSelected(this));
   }
 
   onSelected() {

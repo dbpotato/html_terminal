@@ -58,16 +58,15 @@ class WebApp {
   }
 
   onTerminalAdded(hostId, terminalId) {
-    this.terminalManager.onTerminalAdded(hostId, terminalId);
+    this.pushEvent(this, new AppEventTerminalAdded(hostId, terminalId));
   }
 
   onTerminalOutput(terminalId, msg) {
     this.terminalManager.onTerminalOutput(terminalId, msg);
   }
 
-  onTerminalClosed(host_id, terminalId) {
-    this.pushEvent(this, new AppEventTerminalClosed(host_id, terminalId));
-    this.terminalManager.onTerminalClosed(terminalId);
+  onTerminalClosed(hostId, terminalId) {
+    this.pushEvent(this, new AppEventTerminalClosed(hostId, terminalId));
   }
 
   onDirectoryListen(terminalId, req_path, files) {

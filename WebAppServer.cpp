@@ -44,15 +44,17 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <vector>
 
 
-WebAppServer::WebAppServer(std::shared_ptr<TerminalServer> term_proxy)
-    : _term_server(term_proxy) {
+WebAppServer::WebAppServer(std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src)
+    : _term_server(term_proxy)
+    , _listen_all_src(listen_all_src) {
   _thread_loop = std::make_shared<ThreadLoop>();
   _thread_loop->Init();
 }
 
 void WebAppServer::Handle(HttpRequest& request) {
   auto client = request._client.lock();
-  if(client && client->GetIp().compare("127.0.0.1")) {
+  bool block = !_listen_all_src && client->GetIp().compare("127.0.0.1");  
+  if(!client || block) {
     if(client) {
       log()->info("WebAppServer::Handle : Client Ip blocked : {}", client->GetIp());
     } else {

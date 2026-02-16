@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2020 Adam Kaniewski
+Copyright (c) 2020 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -144,11 +144,11 @@ std::string JsonMsg::MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data
   return jobj.dump();
 }
 
-std::string JsonMsg::MakeTerminalClosed(int host_id, int terminal_id) {
+std::string JsonMsg::MakeTerminalClosed(int terminal_id, int host_id) {
   auto jobj = nlohmann::json::object();
   jobj["type"] = "terminal_closed";
-  jobj["host_id"] = host_id;
   jobj["terminal_id"] = terminal_id;
+  jobj["host_id"] = host_id;
   return jobj.dump();
 }
 

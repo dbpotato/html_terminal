@@ -55,9 +55,11 @@ private:
       , _is_valid(false)
       , _lib_handler(nullptr) {
     if(!(_lib_handler = dlopen("./libterm_client.so", RTLD_NOW))) {
-      printf("TerminalClientWrapper : Can't load libterm_client.so %s\n", dlerror());
+      if(!(_lib_handler = dlopen("libterm_client.so", RTLD_NOW))) {
+        printf("TerminalClientWrapper : Can't load libterm_client.so %s\n", dlerror());
+      }
     }
-    else {
+    if(_lib_handler) {
       _init = (void(*)(int, const char*, const char*)) dlsym(_lib_handler, "init");
 
       if(_init) {

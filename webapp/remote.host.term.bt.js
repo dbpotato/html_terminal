@@ -123,13 +123,6 @@ class RemoteHostTermButton extends View {
     };
 
 
-    //this.plusLineVerti = document.createElement("div");
-    //this.plusLineVerti.setAttribute("class", "term-box-plus-line-vert");
-
-    //this.plusLineHori = document.createElement("div");
-    //this.plusLineHori.setAttribute("class", "term-box-plus-line-hori");
-
-
     this.circleBox = document.createElement("div");
     this.circleBox.setAttribute("class", "term-box-circle");
     this.circleBox.onclick = function(event) {
@@ -145,9 +138,6 @@ class RemoteHostTermButton extends View {
     circleBoxLineDown.setAttribute("class", "term-box-circle-line diagonal-down");
     this.circleBox.appendChild(circleBoxLineDown);
 
-    //this.addObj(this.promtLine);
-    //this.addObj(this.plusLineVerti);
-    //this.addObj(this.plusLineHori);
     this.addObj(this.circleBox);
     this.addObj(this.addButtonView.node);
     this.addObj(this.promtButtonView.node);

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Adam Kaniewski
+Copyright (c) 2023 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -48,7 +48,7 @@ class WebAppServer : public HttpRequestHandler
                    , public std::enable_shared_from_this<WebAppServer> {
 
 public:
-  WebAppServer(std::shared_ptr<TerminalServer> term_proxy);
+  WebAppServer(std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src);
 
   void Handle(HttpRequest& request) override;
   bool OnWsClientConnected(std::shared_ptr<Client> client, const std::string& request_arg) override;
@@ -96,4 +96,5 @@ private:
   std::shared_ptr<ThreadLoop> _thread_loop;
   WebAppData _web_data;
   ActiveSessions _sessions;
+  bool _listen_all_src;
 };
