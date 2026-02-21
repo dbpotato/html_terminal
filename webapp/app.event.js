@@ -30,6 +30,14 @@ class AppEventHostSelected extends AppEvent {
   }
 }
 
+class AppEventHostDisconnected extends AppEvent {
+  constructor(hostId) {
+    super();
+    this.type = "HostDisconnected";
+    this.hostId = hostId;
+  }
+}
+
 class AppEventTerminalSelected extends AppEvent {
   constructor(terminalNode) {
     super();

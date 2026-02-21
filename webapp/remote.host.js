@@ -117,9 +117,6 @@ class RemoteHost extends View {
       }
     });
     if(termButton != null) {
-      if(termButton.terminal == this.activeTerminal) {
-        this.activeTerminal = null;
-      }
       this.removeTerminalButton(termButton);
     } else {
       console.log("cant find button for terminalId : " + terminalId);
@@ -128,6 +125,10 @@ class RemoteHost extends View {
 
   removeTerminalButton(termButton){
     this.buttonsPanel.removeChild(termButton.node);
+
+    if(termButton.terminal == this.activeTerminal) {
+      this.activeTerminal = null;
+    }
 
     let index = this.buttons.indexOf(termButton);
     if(index > -1) {

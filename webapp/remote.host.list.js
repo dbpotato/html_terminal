@@ -25,7 +25,10 @@ class RemoteHostList extends View {
         this.removeTerminalForHost(appEvent.hostId, appEvent.terminalId);
         break;
       case "HostSelected" :
-        this.onHostSelected(appEvent.host);
+        this.handleHostSelected(appEvent.host);
+        break;
+      case "HostDisconnected" :
+        this.handleHostDisconnected(appEvent.hostId);
         break;
       default:
         break;
@@ -67,28 +70,11 @@ class RemoteHostList extends View {
     }
   }
 
-  removeHost(hostId) {
-    let host = this.getHostById(hostId);
-    if (host == null) {
-      return;
-    }
-
-    if (this.currentHost == host) {
-      this.currentHost = null;
-    }
-
-    this.removeObj(host.node);
-    this.hosts.delete(hostId);
-    host.terminals.forEach(terminal => {
-      this.manager.deleteTerminal(terminal.id);
-    });
-  }
-
   size() {
     return this.hosts.size;
   }
 
-  onHostSelected(host) {
+  handleHostSelected(host) {
     if(this.currentHost != null){
       this.currentHost.onDeselected();
     }
@@ -97,6 +83,34 @@ class RemoteHostList extends View {
       this.currentHost.onSelected();
     }
   }
+
+  handleHostDisconnected(hostId) {
+    let host = this.getHostById(hostId);
+    if (host == null) {
+      console.log("Can't find host id for removal : " + hostId);
+      return;
+    }
+
+    if (this.currentHost == host) {
+      this.currentHost = null;
+    }
+
+    let terminals = new Array();
+    host.buttons.forEach(button => {
+      if(button.terminal != null) {
+        terminals.push(button.terminal);
+      }
+    });
+
+    this.removeObj(host.node);
+    this.hosts.delete(hostId);
+
+    this.manager.deleteHostTerminals(terminals);
+    if(this.hosts.size == 0) {
+      this.manager.onHostListEmpty();
+    }
+  }
+
   onHostEmpty(host) {
     this.manager.onHostEmpty(host);
   }

@@ -54,7 +54,7 @@ class WebApp {
   }
 
   onHostDisconnected(hostId) {
-    this.terminalManager.onHostDisconnected(hostId);
+    this.pushEvent(this, new AppEventHostDisconnected(hostId));
   }
 
   onTerminalAdded(hostId, terminalId) {

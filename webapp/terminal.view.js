@@ -73,17 +73,12 @@ class TerminalView extends View {
     }
   }
 
-  removeTerminal(id) {
-    let terminal = this.getTerminalById(id);
-    if(terminal == null) {
-      return;
-    }
-
+  removeTerminal(terminal) {
     if(this.currentTerminal = terminal) {
       this.currentTerminal = null;
     }
 
     terminal.deleteNode();
-    this.terminals.delete(id);
+    this.terminals.delete(terminal.id);
   }
 }

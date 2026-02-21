@@ -34,7 +34,7 @@ class TerminalManager extends View {
   onEvent(appEvent) {
     switch(appEvent.type) {
       case "HostSelected" :
-        this.onHostSelected(appEvent.host);
+        this.handleHostSelected(appEvent.host);
         break;
       case "TerminalAdded" :
         this.onTerminalAdded(appEvent.hostId, appEvent.terminalId);
@@ -82,15 +82,7 @@ class TerminalManager extends View {
     document.webApp.messenger.send(termReqMsg);
   }
 
-  onHostDisconnected(hostId) {
-    console.log("Client Disconnected : " + hostId);
-    this.hostList.removeHost(hostId);
-    if(this.hostList.size() == 0) {
-      this.showNoTerminalsInfo();
-    }
-  }
-
-  onHostSelected(host) {
+  handleHostSelected(host) {
     if(host.activeTerminal != null) {
       this.terminalView.setTerminal(host.activeTerminal);
     } else {
@@ -124,9 +116,14 @@ class TerminalManager extends View {
     }
   }
 
-  deleteTerminal(id) {
-    this.terminalView.removeTerminal(id);
-    document.webApp.onUITerminalClosed(id);
+  deleteHostTerminals(terminals) {
+    terminals.forEach(terminal => {
+      this.terminalView.removeTerminal(terminal);
+    });
+  }
+
+  onHostListEmpty() {
+    this.showNoTerminalsInfo();
   }
 
   onTerminalOutput(id, output) {
