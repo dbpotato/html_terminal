@@ -61,9 +61,7 @@ public:
 
   void OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) override;
   void OnTerminalEnd(std::shared_ptr<Terminal> terminal) override;
-
-  void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) override;
-  void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) override;
+  void OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) override;
 
   void DeleteTerminals();
 

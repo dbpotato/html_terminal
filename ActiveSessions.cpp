@@ -28,6 +28,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 std::atomic<uint32_t> ActiveSessions::FileTransferSession::_id_counter(0);
 
+
 uint32_t ActiveSessions::FileTransferSession::NextId() {
   if(_id_counter == std::numeric_limits<uint32_t>::max()) {
     DLOG(error, "FileTransferSession's id counter overflow");
@@ -43,10 +44,6 @@ ActiveSessions::FileTransferSession::FileTransferSession(std::shared_ptr<Client>
 
 uint32_t ActiveSessions::FileTransferSession::GetId()  {
   return _id;
-}
-
-void ActiveSessions::FileTransferSession::SetFileTransfer(std::shared_ptr<FileTransfer> file_transfer) {
-  _file_transfer = file_transfer;
 }
 
 void ActiveSessions::FileTransferSession::SetTerminalId(uint32_t terminal_id) {

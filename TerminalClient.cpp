@@ -257,6 +257,7 @@ void TerminalClient::HandleTerminalWrite(std::shared_ptr<Data> msg_data) {
 
 void TerminalClient::HandleDisconnected() {
   _pending_msg_counter.store(0);
+  ReleaseAllTransfers();
   DeleteTerminals();
 }
 
@@ -333,10 +334,6 @@ void TerminalClient::HandleFileRequest(std::shared_ptr<Data> msg_data) {
   MakeFileTransferRequest(req_id, is_download_from_client, path, _connection, _host, _port);
 }
 
-void TerminalClient::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) {
-  //TODO
-}
-
-void TerminalClient::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
-  //TODO
+void TerminalClient::OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
+  MaybeReleaseTransferIfEnded(file_transfer);
 }

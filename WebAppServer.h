@@ -64,8 +64,8 @@ public:
   void OnTerminalOutput(uint32_t client_id, uint32_t terminal_id, std::shared_ptr<Data> output);
   void OnTerminalClosed(uint32_t client_id, uint32_t terminal_id, uint32_t remote_host_id);
 
-  void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success);
-  void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg);
+  void HandleFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer);
+  void HandleFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg);
 
 private:
   struct RemoteHostInfo {

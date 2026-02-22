@@ -118,7 +118,7 @@ class FileModeNode extends View {
       }
       if(elem.is_dir) {
         document.webApp.messenger.send(MessageBuilder.makeFileReq(this.id, target, true));
-      } else {
+      } else if(elem.size > 0) {
         let element = document.createElement('a');
         element.setAttribute("href", 'download?'+this.id+"&"+target);
         element.setAttribute("download", target.replace(/^.*[\\/]/, ''));

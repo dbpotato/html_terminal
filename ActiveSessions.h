@@ -29,7 +29,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <vector>
 
 class Client;
-class FileTransfer;
 
 class ActiveSessions {
 public:
@@ -51,7 +50,6 @@ public:
   public:
     FileTransferSession(std::shared_ptr<Client> web_app_client);
     uint32_t GetId();
-    void SetFileTransfer(std::shared_ptr<FileTransfer> file_transfer);
     void SetTerminalId(uint32_t terminal_id);
     uint32_t GetTerminalId();
     std::shared_ptr<Client> GetWebClient();
@@ -59,7 +57,6 @@ public:
     static uint32_t NextId();
     static std::atomic<uint32_t> _id_counter;
     uint32_t _id;
-    std::shared_ptr<FileTransfer> _file_transfer;
     std::shared_ptr<Client> _web_app_client;
     uint32_t _terminal_id;
   };

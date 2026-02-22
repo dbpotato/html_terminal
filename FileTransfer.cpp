@@ -14,14 +14,21 @@ void FileTransferHandler::OnFileTransferDataReceived(std::shared_ptr<FileTransfe
                                           std::shared_ptr<Message> msg) {
 }
 
-void FileTransferHandler::HandleTransferCompleted(std::shared_ptr<FileTransfer> file_transfer,
-                               std::shared_ptr<SimpleMessage> msg,
-                               bool success) {
-  OnFileTransferCompleted(file_transfer, msg, success);
+void FileTransferHandler::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) {
   _transfers.erase(file_transfer->GetRequestId());
 }
 
+bool FileTransferHandler::MaybeReleaseTransferIfEnded(std::shared_ptr<FileTransfer> transfer) {
+  if(transfer->HasFailed() || (transfer->GetExpectedFileSize() == transfer->GetReceivedFileSize())) {
+    _transfers.erase(transfer->GetRequestId());
+    return true;
+  }
+  return false;
+}
 
+void FileTransferHandler::ReleaseAllTransfers() {
+  _transfers.clear();
+}
 
 FileTransfer::FileTransfer(std::weak_ptr<FileTransferHandler> listener
                           ,uint32_t req_id
@@ -32,10 +39,57 @@ FileTransfer::FileTransfer(std::weak_ptr<FileTransferHandler> listener
     , _req_file_path(req_file_path)
     , _is_get_request(is_get_request)
     , _is_directory_listing_request(false)
-    , _awaing_raw_data(false)
+    , _current_state(State::IDLE)
     , _received_file_size(0)
     , _expected_file_size(0)
     , _data_transfer_counter(0) {
+}
+
+bool FileTransfer::SwitchState(FileTransfer::State new_state) {
+  bool rejected = true;
+  switch(_current_state) {
+    case FileTransfer::State::IDLE:
+      {
+        if(new_state == FileTransfer::State::AWAITING_INIT_MSG ||
+            new_state == FileTransfer::State::AWAITING_ACK_MSG) {
+          rejected = false;
+        }
+      }
+      break;
+    case FileTransfer::State::AWAITING_INIT_MSG:
+      {
+        if(new_state == FileTransfer::State::RECEIVING_DATA) {
+          rejected = false;
+        }
+      }
+      break;
+    case FileTransfer::State::AWAITING_ACK_MSG:
+      {
+        if(new_state == FileTransfer::State::SENDING_DATA) {
+          rejected = false;
+        }
+      }
+    case FileTransfer::State::SENDING_DATA:
+    case FileTransfer::State::RECEIVING_DATA:
+    case FileTransfer::State::DONE:
+      {
+        if(new_state == FileTransfer::State::DONE) {
+          rejected = false;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+
+  if(rejected) {
+    DLOG(error, "Invalid transition from current state : {} to new state", (int)_current_state, (int)new_state);
+    OnFail();
+    return false;
+  } else {
+    _current_state = new_state;
+  }
+  return true;
 }
 
 uint32_t FileTransfer::GetRequestId() {
@@ -59,6 +113,10 @@ uint64_t FileTransfer::GetReceivedFileSize() {
 }
 
 void FileTransfer::SendTransferRequestMsg(std::shared_ptr<Client> client) {
+  if(!SwitchState(FileTransfer::State::AWAITING_INIT_MSG)) {
+    return;
+  }
+
   uint32_t data_size = 4 + 1 + _req_file_path.length();
   auto data = std::make_shared<Data>(data_size);
   data->Add(4, (unsigned char*)&_req_id);
@@ -71,7 +129,7 @@ void FileTransfer::SendTransferRequestMsg(std::shared_ptr<Client> client) {
 }
 
 void FileTransfer::OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) {
-  if(!_awaing_raw_data) {
+  if(_current_state != FileTransfer::State::RECEIVING_DATA) {
     std::shared_ptr<SimpleMessage> simple_msg = std::static_pointer_cast<SimpleMessage>(msg);
     auto msg_header = simple_msg->GetHeader();
     auto type = MessageType::TypeFromInt(msg_header->_type);
@@ -80,7 +138,10 @@ void FileTransfer::OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<
         SendRequestedData();
         break;
       default:
-        DLOG(error, "OnClientRead : unexpected message type : {}", msg_header->_type);
+        {
+          DLOG(error, "OnClientRead : unexpected message type : {}", msg_header->_type);
+          OnFail();
+        }
         break;
     }
   } else {
@@ -90,6 +151,7 @@ void FileTransfer::OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<
 
 bool FileTransfer::OnClientConnecting(std::shared_ptr<Client> client, NetError err) {
   if(err != NetError::OK) {
+    OnFail();
     return false;
   }
 
@@ -104,10 +166,29 @@ void FileTransfer::OnClientConnected(std::shared_ptr<Client> client) {
 }
 
 void FileTransfer::OnClientClosed(std::shared_ptr<Client> client) {
-  //TODO
+  if(_current_state != FileTransfer::State::DONE && _current_state != FileTransfer::State::FAILED) {
+    OnFail();
+  }
+}
+
+void FileTransfer::OnMsgSent(std::shared_ptr<Client> client, std::shared_ptr<Message> msg, bool success) {
+  if(_current_state != FileTransfer::State::SENDING_DATA) {
+    return;
+  }
+  SwitchState(FileTransfer::State::DONE);
+  auto listener = _listener.lock();
+  if(listener) {
+    listener->OnFileTransferCompleted(shared_from_this());
+  } else {
+    DLOG(error, "Cant' lock listener");
+  }
 }
 
 void FileTransfer::SendInitResponse() {
+  if(!SwitchState(FileTransfer::State::AWAITING_ACK_MSG)) {
+    return;
+  }
+
   bool is_valid = true;
   uint64_t file_length = 0;
   std::error_code fs_error;
@@ -156,11 +237,16 @@ void FileTransfer::SendInitResponse() {
   _client->Send(msg);
 
   if(!is_valid) {
-    //TODO
+    OnFail();
   }
 }
 
 void FileTransfer::HandleTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data) {
+  if(!SwitchState(FileTransfer::State::RECEIVING_DATA)) {
+    return;
+  }
+
+
   _client = client;
   uint32_t req_id = 0;
   uint8_t is_valid = 0;
@@ -180,41 +266,56 @@ void FileTransfer::HandleTransferInit(std::shared_ptr<Client> client, std::share
 
   if(!is_valid) {
     //TODO
-    //OnFileTransferCompleted(file_transfer, nullptr, false);
+    OnFail();
     return;
   }
 
   if(!_is_get_request) {
-    //S3
     //TODO
-    //std::shared_ptr<SimpleMessage> content_msg = CreateFileMsg();
-    //client->Send(content_msg);
+    DLOG(error, "Got unsupported non get request");
+    OnFail();
+    return;
   }
-  SendAckAndSwitchToRaw();
-}
 
-
-void FileTransfer::SendAckAndSwitchToRaw() {
-  _awaing_raw_data = true;
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::FILE_TRANSFER_ACK);
-  _client->Send(msg);
   _client->SetMsgBuilder(nullptr);
+  _client->Send(msg);
 }
 
+void FileTransfer::OnFail() {
+  _current_state = FileTransfer::State::FAILED;
+  auto listener = _listener.lock();
+  if(listener) {
+    listener->OnFileTransferFailed(shared_from_this());
+  } else {
+    DLOG(error, "OnFail : cant' lock listener");
+  }
+}
 
 void FileTransfer::HandleFileTransferMsg(std::shared_ptr<Message> msg) {
   _data_transfer_counter++;
   _received_file_size +=  msg->GetDataResource()->GetSize();
 
+  if(_received_file_size == _expected_file_size) {
+    SwitchState(FileTransfer::State::DONE);
+  }
+
   auto listener = _listener.lock();
   if(listener) {
     listener->OnFileTransferDataReceived(shared_from_this(), msg);
+    if(_current_state == FileTransfer::State::DONE) {
+      listener->OnFileTransferCompleted(shared_from_this());
+    }
   } else {
     DLOG(error, "HandleFileTransferDataMsg : cant' lock listener");
   }
 }
 
 void FileTransfer::SendRequestedData() {
+  if(!SwitchState(FileTransfer::State::SENDING_DATA)) {
+    return;
+  }
+
   std::error_code fs_error;
   std::filesystem::path path(_req_file_path);
   std::shared_ptr<Message> content_msg;
@@ -238,6 +339,10 @@ void FileTransfer::SendRequestedData() {
 
 bool FileTransfer::IsGetRequest() {
   return _is_get_request;
+}
+
+bool FileTransfer::HasFailed() {
+  return (_current_state == State::FAILED);
 }
 
 bool FileTransfer::IsDirectoryListingRequest() {

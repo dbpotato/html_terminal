@@ -98,7 +98,7 @@ void WebAppServer::PerpareHTTPGetResponse(HttpRequest& request) {
 void WebAppServer::PerpareFileDownloadResponse(HttpRequest& http_request) {
   int terminal_id = -1;
   uint32_t remote_host_id = 0;
-  std::string path;
+
   std::string target = http_request._request_msg->GetHeader()->GetRequestTarget();
   auto web_client = http_request._client.lock();
   if(!web_client) {
@@ -126,10 +126,11 @@ void WebAppServer::PerpareFileDownloadResponse(HttpRequest& http_request) {
     return;
   }
 
-  path = host_path_split.at(1);
-
   auto file_session = _sessions.CreateFileTransferSession(web_client);
-  auto file_request = _term_server->CreateFileRequest(remote_host_id, file_session->GetId(), path, true);
+  auto file_request = _term_server->CreateFileRequest(remote_host_id,
+                                                      file_session->GetId(),
+                                                      StringUtils::UrlDecode(host_path_split.at(1)),
+                                                      true);
 
   if(!file_request) {
     log()->error("WebAppServer::PerpareFileDownloadResponse failed");
@@ -137,7 +138,6 @@ void WebAppServer::PerpareFileDownloadResponse(HttpRequest& http_request) {
     return;
   }
 
-  file_session->SetFileTransfer(file_request);
   http_request._handled = true;
 }
 
@@ -418,52 +418,12 @@ void WebAppServer::OnTerminalFileReq(std::shared_ptr<Client> client,
     _sessions.EraseFileTransferSession(file_session->GetId());
     return;
   }
-  file_session->SetFileTransfer(file_transfer);
   file_session->SetTerminalId(terminal_id);
 }
 
-void WebAppServer::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<SimpleMessage> msg, bool success) {
-
+void WebAppServer::HandleFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
   if(_thread_loop->OnDifferentThread()) {
-    _thread_loop->Post(std::bind(&WebAppServer::OnFileTransferCompleted,
-                                 shared_from_this(),
-                                 file_transfer,
-                                 msg,
-                                 success));
-    return;
-  };
-
-  auto session = _sessions.GetFileTransferSession(file_transfer->GetRequestId());
-  uint32_t terminal_id = session->GetTerminalId();
-  if(success) {
-    if(terminal_id) {
-      std::vector<DirectoryListing::FileInfo> files;
-      if(!DirectoryListing::DeserializeDirectory(msg->GetContent()->GetMemCache(), files)) {
-        DLOG(error, "DeserializeDirectory failed");
-        return;
-      }
-      auto json_msg = JsonMsg::MakeDirectoryListingMsg(terminal_id, file_transfer->GetRequestPath(), files);
-      auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
-      session->GetWebClient()->Send(ws_msg);
-    } else {
-     if(file_transfer->GetDataTransferCounter() == 1) {
-       auto header = std::make_shared<HttpHeader>(HttpHeaderProtocol::HTTP_1_1, 200);
-       header->SetField(HttpHeaderField::CONTENT_TYPE, "application/octet-stream");
-       header->SetField(HttpHeaderField::CONTENT_LENGTH, std::to_string(file_transfer->GetExpectedFileSize()));
-       auto http_header_msg = std::make_shared<HttpMessage>(header, nullptr);
-       session->GetWebClient()->Send(http_header_msg);
-     }
-     auto data_message = std::make_shared<Message>(msg->GetContent()->GetMemCache());
-     session->GetWebClient()->Send(data_message);
-    }
-  } else {
-    //TODO
-  }
-}
-
-void WebAppServer::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
-  if(_thread_loop->OnDifferentThread()) {
-    _thread_loop->Post(std::bind(&WebAppServer::OnFileTransferDataReceived,
+    _thread_loop->Post(std::bind(&WebAppServer::HandleFileTransferDataReceived,
                                  shared_from_this(),
                                  file_transfer,
                                  msg));
@@ -500,4 +460,30 @@ void WebAppServer::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file
   if(file_transfer->GetExpectedFileSize() == file_transfer->GetReceivedFileSize()) {
     _sessions.EraseFileTransferSession(file_transfer->GetRequestId());
   }
+}
+
+void WebAppServer::HandleFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
+
+  if(_thread_loop->OnDifferentThread()) {
+    _thread_loop->Post(std::bind(&WebAppServer::HandleFileTransferFailed,
+                                 shared_from_this(),
+                                 file_transfer));
+    return;
+  };
+
+  auto session = _sessions.GetFileTransferSession(file_transfer->GetRequestId());
+  if(!session) {
+    log()->error("Can't find session with id {}", file_transfer->GetRequestId());
+    return;
+  }
+
+  if(!file_transfer->GetDataTransferCounter()) {
+    log()->error("Send 500 response : {}", file_transfer->GetRequestId());
+    auto header = std::make_shared<HttpHeader>(HttpHeaderProtocol::HTTP_1_1, 500);
+    header->SetField(HttpHeaderField::CONTENT_LENGTH,"0");
+    auto http_header_msg = std::make_shared<HttpMessage>(header, nullptr);
+    session->GetWebClient()->Send(http_header_msg);
+  }
+
+  _sessions.EraseFileTransferSession(file_transfer->GetRequestId());
 }
