@@ -47,7 +47,8 @@ public:
   static std::shared_ptr<TerminalClient> Create(std::shared_ptr<Connection> connection,
                                                     int port,
                                                     const std::string& host,
-                                                    const std::string& shell_cmd);
+                                                    const std::string& shell_cmd,
+                                                    const std::string& terminal_type);
 
   std::shared_ptr<FileTransferHandler> GetSptr() override;
   void OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) override;
@@ -79,7 +80,8 @@ protected:
   TerminalClient(std::shared_ptr<Connection> connection,
                       int port,
                       const std::string& host,
-                      const std::string& shell_cmd);
+                      const std::string& shell_cmd,
+                      const std::string& terminal_type);
   void Init();
   void ResolvePendingMsgUpdated();
   void SendClientInfoMsg();
@@ -89,6 +91,7 @@ private :
   int _port;
   std::string _host;
   std::string _shell_cmd;
+  std::string _terminal_type;
   std::atomic_int _pending_msg_counter;
   std::shared_ptr<TerminalHandler> _term_handler;
   std::shared_ptr<ThreadLoop> _thread;

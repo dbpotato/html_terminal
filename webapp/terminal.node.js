@@ -1,3 +1,7 @@
+import View from "./view.js";
+import FileModeNode from "./filemode.node.js";
+import MessageBuilder from "./message.builder.js";
+
 class TerminalContainer extends View {
   constructor() {
     super();
@@ -9,7 +13,7 @@ class TerminalContainer extends View {
   }
 }
 
-class TerminalNode extends View {
+export default class TerminalNode extends View {
     constructor(terminalId, hostId) {
       super();
       this.terminal = null;
@@ -88,10 +92,10 @@ class TerminalNode extends View {
     }
 
     onTermData(e) {
-      document.webApp.messenger.send(MessageBuilder.makeKeyEvent(this.id, e));
+      WebApp.instance().messenger.send(MessageBuilder.makeKeyEvent(this.id, e));
     }
 
     onTermResize(e) {
-      document.webApp.messenger.send(MessageBuilder.makeResizeReq(this.id, e.cols, e.rows));
+      WebApp.instance().messenger.send(MessageBuilder.makeResizeReq(this.id, e.cols, e.rows));
     };
   }

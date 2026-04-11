@@ -1,4 +1,7 @@
- class ReconnectInfo extends View {
+import View from "./view.js";
+import WebApp from "./web.app.js"
+
+export default class ReconnectInfo extends View {
   constructor() {
     super();
     this.button = null;
@@ -54,11 +57,11 @@
       }, 1000);
     }
     else {
-      document.webApp.reconnect();
+      WebApp.instance().reconnect();
     }
   }
 
   onClicked() {
-    document.webApp.reconnect();
+    WebApp.instance().reconnect();
   }
 }

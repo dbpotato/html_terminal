@@ -42,7 +42,7 @@ public:
     TERMINAL_DEL,
     TERMINAL_RESIZE,
     TERMINAL_KEY_EVENT,
-    FILE_TRANSFER_REQ,
+    FS_REQ,
   };
 
   JsonMsg();
@@ -58,6 +58,8 @@ public:
   static std::string MakeTerminalOutputMsg(int terminal_id, std::shared_ptr<Data> output);
   static std::string MakeTerminalClosed(int terminal_id, int remote_host_id);
   static std::string MakeDirectoryListingMsg(int terminal_id, const std::string& req_path, const std::vector<DirectoryListing::FileInfo>& files);
+  static std::string MakeFileAccessAcceptedMsg(int request_id, const std::string& req_path);
+  static std::string MakeFileAccessFailedMsg(int terminal_id, int remote_host_id, const std::string& req_file);
   static std::string Empty();
   int ValueToInt(const std::string& key);
   std::string ValueToString(const std::string& key);

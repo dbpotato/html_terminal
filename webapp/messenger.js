@@ -1,4 +1,6 @@
-class Messenger {
+import WebApp from "./web.app.js"
+
+export default class Messenger {
   constructor() {
     this.websocket = null;
   }
@@ -13,30 +15,34 @@ class Messenger {
   }
 
   onWsCreated() {
-    document.webApp.onConnected();
+    WebApp.instance().onConnected();
   }
 
   onWsMessage(msg) {
     var json = JSON.parse(msg.data);
     if(json.type == "host_connected") {
-      document.webApp.onHostConnected(json.host_id, json.host_ip, json.host_user_name, json.host_name);
+      WebApp.instance().onHostConnected(json.host_id, json.host_ip, json.host_user_name, json.host_name);
     } else if(json.type == "host_disconnected") {
-      document.webApp.onHostDisconnected(json.host_id);
+      WebApp.instance().onHostDisconnected(json.host_id);
     } else if(json.type == "terminal_added") {
-      document.webApp.onTerminalAdded(json.host_id, json.terminal_id);
+      WebApp.instance().onTerminalAdded(json.host_id, json.terminal_id);
     } else if(json.type == "terminal_output") {
       let bytes2str = String.fromCharCode.apply(null, new Uint16Array(json.output.bytes));
-      document.webApp.onTerminalOutput(json.terminal_id, bytes2str);
+      WebApp.instance().onTerminalOutput(json.terminal_id, bytes2str);
     } else if(json.type == "terminal_closed") {
-      document.webApp.onTerminalClosed(json.host_id, json.terminal_id);
+      WebApp.instance().onTerminalClosed(json.host_id, json.terminal_id);
+    } else if(json.type == "file_access_accepted") {
+      WebApp.instance().onFileAccessAccepted(json.request_id, json.req_path);
+    } else if(json.type == "file_access_failed") {
+      WebApp.instance().onFileAccessFailed(json.terminal_id, json.host_id, json.req_file);
     } else if(json.type == "directory_listing_received") {
-      document.webApp.onDirectoryListen(json.terminal_id, json.req_path, json.files);
+      WebApp.instance().onDirectoryListen(json.terminal_id, json.req_path, json.files);
     }
   }
 
   onWsClose() {
     this.websocket = null;
-    document.webApp.onDisconnected();
+    WebApp.instance().onDisconnected();
   }
 
   onWsError(err) {

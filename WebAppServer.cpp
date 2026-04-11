@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Adam Kaniewski
+Copyright (c) 2023 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -44,8 +44,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <vector>
 
 
-WebAppServer::WebAppServer(std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src)
-    : _term_server(term_proxy)
+WebAppServer::WebAppServer(std::shared_ptr<WebsocketServer> ws_server, std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src)
+    : _ws_server(ws_server)
+    , _term_server(term_proxy)
     , _listen_all_src(listen_all_src) {
   _thread_loop = std::make_shared<ThreadLoop>();
   _thread_loop->Init();
@@ -96,8 +97,7 @@ void WebAppServer::PerpareHTTPGetResponse(HttpRequest& request) {
 }
 
 void WebAppServer::PerpareFileDownloadResponse(HttpRequest& http_request) {
-  int terminal_id = -1;
-  uint32_t remote_host_id = 0;
+  int session_id = 0;
 
   std::string target = http_request._request_msg->GetHeader()->GetRequestTarget();
   auto web_client = http_request._client.lock();
@@ -111,33 +111,12 @@ void WebAppServer::PerpareFileDownloadResponse(HttpRequest& http_request) {
     return;
   }
 
-  auto host_path_split = StringUtils::Split(args_split.at(1), "&", 2);
-  if(host_path_split.size() != 2) {
-    return;
-  }
-
-  if(!StringUtils::ToInt(host_path_split.at(0), terminal_id)) {
+  if(!StringUtils::ToInt(args_split.at(1), session_id)) {
     log()->error("WebAppServer::PerpareFileDownloadResponse failed");
     return;
   }
 
-  if(!_sessions.GetRemoteHostByTerminal((uint32_t)terminal_id, remote_host_id)) {
-    log()->error("WebAppServer::PerpareFileDownloadResponse failed");
-    return;
-  }
-
-  auto file_session = _sessions.CreateFileTransferSession(web_client);
-  auto file_request = _term_server->CreateFileRequest(remote_host_id,
-                                                      file_session->GetId(),
-                                                      StringUtils::UrlDecode(host_path_split.at(1)),
-                                                      true);
-
-  if(!file_request) {
-    log()->error("WebAppServer::PerpareFileDownloadResponse failed");
-    _sessions.EraseFileTransferSession(file_session->GetId());
-    return;
-  }
-
+  ContinueFileRequestSession((uint32_t)session_id, web_client) ;
   http_request._handled = true;
 }
 
@@ -176,9 +155,8 @@ void WebAppServer::OnWsClientMessage(std::shared_ptr<Client> client, std::shared
       case JsonMsg::Type::TERMINAL_KEY_EVENT:
         OnTerminalKeyEvent(client, json.ValueToInt("terminal_id"), json.ValueToString("key"));
         break;
-      case JsonMsg::Type::FILE_TRANSFER_REQ:
-        OnTerminalFileReq(client, json.ValueToInt("terminal_id"),
-                                  json.ValueToString("path"));
+      case JsonMsg::Type::FS_REQ:
+        OnFileSysReq(client, json.ValueToInt("terminal_id"), json.ValueToString("path"), (json.ValueToInt("is_dir") == 1));
         break;
       default:
         break;
@@ -228,7 +206,7 @@ void WebAppServer::OnTerminalDelReq(std::shared_ptr<Client> client, int terminal
     return;
   }
 
-  auto session = _sessions.GetWebAppSession(client);
+  auto session = _sessions.GetWebAppSessionByClient(client);
   session->DeleteTerminal(terminal_id);
 
   _term_server->DeleteTerminal(remote_host_id, terminal_id);
@@ -306,7 +284,7 @@ void WebAppServer::OnTerminalCreated(uint32_t client_id, uint32_t terminal_id, u
 
   DLOG(info, "WebAppServer::OnTerminalCreated : client : {}, terminal : {}, remote_host_id : {}", client_id, terminal_id, remote_host_id);
 
-  auto session = _sessions.GetWebAppSession(client_id);
+  auto session = _sessions.GetWebAppSessionByClientId(client_id);
   if(!session) {
     DLOG(warn, "OnTerminalCreated : can't find session for client : {}", client_id);
     return;
@@ -325,7 +303,7 @@ void WebAppServer::OnTerminalOutput(uint32_t client_id, uint32_t terminal_id, st
     return;
   }
 
-  auto session = _sessions.GetWebAppSession(client_id);
+  auto session = _sessions.GetWebAppSessionByClientId(client_id);
   if(!session) {
     DLOG(warn, "WebAppServer::OnTerminalOutput : can't find session for client : {}", client_id);
     return;
@@ -342,7 +320,7 @@ void WebAppServer::OnTerminalClosed(uint32_t client_id, uint32_t terminal_id, ui
     return;
   }
 
-  auto session = _sessions.GetWebAppSession(client_id);
+  auto session = _sessions.GetWebAppSessionByClientId(client_id);
   if(!session) {
     DLOG(warn, "WebAppServer::OnTerminalClosed : can't find client : {}", client_id);
     return;
@@ -376,9 +354,7 @@ void WebAppServer::RemoveClient(std::shared_ptr<Client> client) {
     return;
   }
 
-  DLOG(info, "Remove client : {}", client->GetId());
-
-  auto session = _sessions.GetWebAppSession(client);
+  auto session = _sessions.GetWebAppSessionByClient(client);
   if(!session) {
     DLOG(warn, "WebAppServer::RemoveClient : can't find session for client with id : {}", client->GetId());
     return;
@@ -395,11 +371,12 @@ void WebAppServer::RemoveClient(std::shared_ptr<Client> client) {
 
 
 
-void WebAppServer::OnTerminalFileReq(std::shared_ptr<Client> client,
+void WebAppServer::OnFileSysReq(std::shared_ptr<Client> client,
                                     int terminal_id,
-                                    const std::string& path) {
+                                    const std::string& path,
+                                    bool is_dir) {
   if(!_sessions.IsWebAppClientOwningTerminal(client, terminal_id)) {
-    DLOG(error, "OnTerminalFileReq : terminal ownership failed : client: {}, terminal: {}",
+    DLOG(error, "OnFSReq : terminal ownership failed : client: {}, terminal: {}",
                  client->GetId(),
                  terminal_id);
     return;
@@ -411,14 +388,77 @@ void WebAppServer::OnTerminalFileReq(std::shared_ptr<Client> client,
     return;
   }
 
-  auto file_session = _sessions.CreateFileTransferSession(client);
+  auto file_session = _sessions.CreateFileTransferSession(is_dir);
+  file_session->SetTerminalAndHostId(terminal_id, remote_host_id);
+  file_session->SetWebAppWSClient(client);
+
   auto file_transfer = _term_server->CreateFileRequest(remote_host_id, file_session->GetId(), path, true);
   if(!file_transfer) {
-    DLOG(error, "OnTerminalFileReq : create new request failed");
+    DLOG(error, "OnFSReq : create new request failed");
     _sessions.EraseFileTransferSession(file_session->GetId());
     return;
   }
-  file_session->SetTerminalId(terminal_id);
+  file_session->SetFileTransfer(file_transfer);
+}
+
+void WebAppServer::HandleFileTransferAccepted(std::shared_ptr<FileTransfer> file_transfer) {
+  if(_thread_loop->OnDifferentThread()) {
+    _thread_loop->Post(std::bind(&WebAppServer::HandleFileTransferAccepted,
+                                 shared_from_this(),
+                                 file_transfer));
+    return;
+  };
+
+  auto session = _sessions.GetFileTransferSession(file_transfer->GetRequestId());
+  if(!session) {
+    log()->error("Can't find session with id {}", file_transfer->GetRequestId());
+    return;
+  }
+
+  auto ws_client = session->GetWebAppWSClient().lock();
+  if(!ws_client) {
+    log()->error("Can't get WSClient for file request : {}", file_transfer->GetRequestId());
+    return;
+  }
+
+  if(!file_transfer->IsDirectoryListingRequest()) {
+    auto json_msg = JsonMsg::MakeFileAccessAcceptedMsg(file_transfer->GetRequestId(), file_transfer->GetRequestPath());
+    auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
+    ws_client->Send(ws_msg);
+  } else {
+    ContinueFileRequestSession(session->GetId(), nullptr);
+  }
+}
+
+void WebAppServer::ContinueFileRequestSession(uint32_t session_id, std::shared_ptr<Client> client) {
+  if(_thread_loop->OnDifferentThread()) {
+    _thread_loop->Post(std::bind(&WebAppServer::ContinueFileRequestSession,
+                                shared_from_this(),
+                                session_id,
+                                client));
+    return;
+  };
+
+  std::shared_ptr<FileTransfer> file_transfer;
+
+  auto session = _sessions.GetFileTransferSession(session_id);
+  if(session) {
+    file_transfer = session->GetFileTransfer().lock();
+  } else {
+    log()->error("Can't find session with id {}", session_id);
+  }
+
+  if(!file_transfer) {
+    if(client) {
+      auto header = std::make_shared<HttpHeader>(HttpHeaderProtocol::HTTP_1_1, 500);
+      header->SetField(HttpHeaderField::CONTENT_LENGTH,"0");
+      auto http_header_msg = std::make_shared<HttpMessage>(header, nullptr);
+      client->Send(http_header_msg);
+    }
+    return;
+  }
+  session->SetWebAppTransferClient(client);
+  file_transfer->SendTransferAckMessage();
 }
 
 void WebAppServer::HandleFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
@@ -436,30 +476,47 @@ void WebAppServer::HandleFileTransferDataReceived(std::shared_ptr<FileTransfer> 
     return;
   }
 
-  uint32_t terminal_id = session->GetTerminalId();
-  if(terminal_id) {
-    std::vector<DirectoryListing::FileInfo> files;
-    if(!DirectoryListing::DeserializeDirectory(msg->GetDataResource()->GetMemCache(), files)) {
-      //TODO
+  if(session->IsDirListing()) {
+    auto ws_client = session->GetWebAppWSClient().lock();
+    if(!ws_client) {
+      log()->error("Can't get WSClient for file transfer : {}", file_transfer->GetRequestId());
       return;
     }
-    auto json_msg = JsonMsg::MakeDirectoryListingMsg(terminal_id, file_transfer->GetRequestPath(), files);
+
+    std::vector<DirectoryListing::FileInfo> files;
+    if(!DirectoryListing::DeserializeDirectory(msg->GetDataResource()->GetMemCache(), files)) {
+      NotifyFileReqFailed(session, file_transfer);
+      return;
+    }
+    auto json_msg = JsonMsg::MakeDirectoryListingMsg(session->GetTerminalId(), file_transfer->GetRequestPath(), files);
     auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
-    session->GetWebClient()->Send(ws_msg);
+    ws_client->Send(ws_msg);
   } else {
     if(file_transfer->GetDataTransferCounter() == 1) {
       auto header = std::make_shared<HttpHeader>(HttpHeaderProtocol::HTTP_1_1, 200);
       header->SetField(HttpHeaderField::CONTENT_TYPE, "application/octet-stream");
       header->SetField(HttpHeaderField::CONTENT_LENGTH, std::to_string(file_transfer->GetExpectedFileSize()));
       auto http_header_msg = std::make_shared<HttpMessage>(header, nullptr);
-      session->GetWebClient()->Send(http_header_msg);
+      session->GetWebAppTransferClient()->Send(http_header_msg);
     }
-    session->GetWebClient()->Send(msg);
+    session->GetWebAppTransferClient()->Send(msg);
+  }
+}
+
+void WebAppServer::HandleFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) {
+  if(_thread_loop->OnDifferentThread()) {
+    _thread_loop->Post(std::bind(&WebAppServer::HandleFileTransferCompleted,
+                                 shared_from_this(),
+                                 file_transfer));
+    return;
+  };
+
+  auto client =_sessions.GetFileTransferSession(file_transfer->GetRequestId())->GetWebAppTransferClient();
+  if(client){
+    _ws_server->RemoveClient(client);
   }
 
-  if(file_transfer->GetExpectedFileSize() == file_transfer->GetReceivedFileSize()) {
-    _sessions.EraseFileTransferSession(file_transfer->GetRequestId());
-  }
+  _sessions.EraseFileTransferSession(file_transfer->GetRequestId());
 }
 
 void WebAppServer::HandleFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
@@ -477,13 +534,36 @@ void WebAppServer::HandleFileTransferFailed(std::shared_ptr<FileTransfer> file_t
     return;
   }
 
-  if(!file_transfer->GetDataTransferCounter()) {
+  NotifyFileReqFailed(session, file_transfer);
+
+  auto client =_sessions.GetFileTransferSession(file_transfer->GetRequestId())->GetWebAppTransferClient();
+  if(client){
+    _ws_server->RemoveClient(client);
+  }
+  _sessions.EraseFileTransferSession(session->GetId());
+}
+
+void WebAppServer::NotifyFileReqFailed(std::shared_ptr<ActiveSessions::FileTransferSession> session, std::shared_ptr<FileTransfer> file_transfer) {
+  log()->info("NotifyFileReqFailed");
+
+  if(!file_transfer->GetDataTransferCounter() && session->GetWebAppTransferClient()) {
     log()->error("Send 500 response : {}", file_transfer->GetRequestId());
     auto header = std::make_shared<HttpHeader>(HttpHeaderProtocol::HTTP_1_1, 500);
     header->SetField(HttpHeaderField::CONTENT_LENGTH,"0");
     auto http_header_msg = std::make_shared<HttpMessage>(header, nullptr);
-    session->GetWebClient()->Send(http_header_msg);
+    session->GetWebAppTransferClient()->Send(http_header_msg);
   }
 
-  _sessions.EraseFileTransferSession(file_transfer->GetRequestId());
+  auto ws_client = session->GetWebAppWSClient().lock();
+  if(!ws_client) {
+    return;
+  }
+
+  auto json_msg =JsonMsg::MakeFileAccessFailedMsg(
+      (int)session->GetTerminalId(),
+      (int)session->GetRemoteHostId(),
+      file_transfer->GetRequestPath()
+  );
+  auto ws_msg = std::make_shared<WebsocketMessage>(json_msg);
+  ws_client->Send(ws_msg);
 }

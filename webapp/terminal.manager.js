@@ -1,4 +1,11 @@
-class TerminalManager extends View {
+import View from "./view.js";
+import RemoteHostList from "./remote.host.list.js";
+import WebApp from "./web.app.js";
+import TerminalView from "./terminal.view.js"
+import MessageBuilder from "./message.builder.js";
+
+
+export default class TerminalManager extends View {
   constructor() {
     super();
     this.hostList = null;
@@ -7,7 +14,7 @@ class TerminalManager extends View {
     this.hostOptions = null;
     this.noTerminalsInfo = null;
     this.createNode();
-    document.webApp.addEventListener(this);
+    WebApp.instance().addEventListener(this);
   }
 
   createNode() {
@@ -63,10 +70,8 @@ class TerminalManager extends View {
   }
 
   onHostConnected(hostId, hostIp, hostUserName, hostName) {
-    console.log("Remote Host Connected : " + hostId + " : " + hostIp + " : " + hostUserName + " : " + hostName);
     this.hostList.addHost(hostId, hostIp, hostUserName, hostName);
     if(this.hostList.size() == 1) {
-      console.log("Get hostList size is: " + this.hostList.size() + "hide NTI, send term req for : " + hostId);
       this.sendNewTerminalRequest(hostId);
       this.hideNoTerminalsInfo();
     }
@@ -74,12 +79,12 @@ class TerminalManager extends View {
 
   sendNewTerminalRequest(hostId){
     let termReqMsg = MessageBuilder.makeNewTerminalReq(hostId);
-    document.webApp.messenger.send(termReqMsg);
+    WebApp.instance().messenger.send(termReqMsg);
   }
 
   terminalCloseRequested(terminalId){
     let termReqMsg = MessageBuilder.makeCloseTerminalReq(terminalId);
-    document.webApp.messenger.send(termReqMsg);
+    WebApp.instance().messenger.send(termReqMsg);
   }
 
   handleHostSelected(host) {
@@ -87,7 +92,7 @@ class TerminalManager extends View {
       this.terminalView.setTerminal(host.activeTerminal);
     } else {
       var termReqMsg = MessageBuilder.makeNewTerminalReq(host.id);
-      document.webApp.messenger.send(termReqMsg);
+      WebApp.instance().messenger.send(termReqMsg);
     }
   }
 
@@ -131,6 +136,7 @@ class TerminalManager extends View {
   }
 
   onDirectoryListen(id, req_path, files) {
+    //TODO event?
     this.terminalView.onDirectoryListen(id, req_path, files);
   }
 }

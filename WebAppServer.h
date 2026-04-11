@@ -48,7 +48,7 @@ class WebAppServer : public HttpRequestHandler
                    , public std::enable_shared_from_this<WebAppServer> {
 
 public:
-  WebAppServer(std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src);
+  WebAppServer(std::shared_ptr<WebsocketServer> ws_server, std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src);
 
   void Handle(HttpRequest& request) override;
   bool OnWsClientConnected(std::shared_ptr<Client> client, const std::string& request_arg) override;
@@ -64,8 +64,10 @@ public:
   void OnTerminalOutput(uint32_t client_id, uint32_t terminal_id, std::shared_ptr<Data> output);
   void OnTerminalClosed(uint32_t client_id, uint32_t terminal_id, uint32_t remote_host_id);
 
+  void HandleFileTransferAccepted(std::shared_ptr<FileTransfer> file_transfer);
   void HandleFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer);
   void HandleFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg);
+  void HandleFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer);
 
 private:
   struct RemoteHostInfo {
@@ -83,14 +85,17 @@ private:
   void OnTerminalResizeReq(std::shared_ptr<Client> client, int terminal_id, int width, int height);
   void OnTerminalDelReq(std::shared_ptr<Client> client, int terminal_id);
   void OnTerminalKeyEvent(std::shared_ptr<Client> client, int terminal_id, const std::string& key);
-  void OnTerminalFileReq(std::shared_ptr<Client> client, int terminal_id, const std::string& key);
 
   std::shared_ptr<Client> GetOwnerOfTerminal(int terminal_id);
   bool IsClientOwningTerminal(std::shared_ptr<Client> client, int terminal_id);
   bool GetRemoteHostId(uint32_t client_id, uint32_t terminal_id, uint32_t& out_remote_host_id);
 
-  std::shared_ptr<TerminalServer> _term_server;
+  void OnFileSysReq(std::shared_ptr<Client> client, int terminal_id, const std::string& key, bool is_dir);
+  void ContinueFileRequestSession(uint32_t session_id, std::shared_ptr<Client> client);
+  void NotifyFileReqFailed(std::shared_ptr<ActiveSessions::FileTransferSession> session, std::shared_ptr<FileTransfer> file_transfer);
+
   std::shared_ptr<WebsocketServer> _ws_server;
+  std::shared_ptr<TerminalServer> _term_server;
 
   std::map<uint32_t, RemoteHostInfo> _active_remote_hosts;
   std::shared_ptr<ThreadLoop> _thread_loop;

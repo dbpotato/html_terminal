@@ -16,5 +16,6 @@ public :
                                 std::shared_ptr<Connection> connection,
                                 const std::string& sever_host,
                                 int server_port);
+  void OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) override;
 };
 

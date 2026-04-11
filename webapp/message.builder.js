@@ -1,11 +1,10 @@
-class MessageBuilder {
+export default class MessageBuilder {
   static makeNewTerminalReq(host_id) {
     var req = {type: "terminal_req", remote_host_id: host_id};
     return JSON.stringify(req);
   }
 
   static makeResizeReq(terminalId, width_val, height_val) {
-    console.log("Send resize for terminal : " + terminalId);
     var req = {type: "terminal_resize", terminal_id: terminalId, width: width_val, height: height_val};
     return JSON.stringify(req);
   }
@@ -20,11 +19,11 @@ class MessageBuilder {
     return JSON.stringify(req);
   }
 
-  static makeFileReq(terminalId, pathReq) {
+  static makeFileSystemReq(terminalId, pathReq, isDir) {
     if(pathReq == null || pathReq == undefined) {
       pathReq = "";
     }
-    var req = {type: "file_req", terminal_id: terminalId, path: pathReq};
+    var req = {type: "fs_req", terminal_id: terminalId, path: pathReq, is_dir: isDir};
     return JSON.stringify(req);
   }
 };

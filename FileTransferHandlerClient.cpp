@@ -24,3 +24,4 @@ void FileTransferHandlerClient::MakeFileTransferRequest(uint32_t req_id,
   connection->CreateClient(server_port, sever_host, file_transfer);
 }
 
+void FileTransferHandlerClient::OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) {}

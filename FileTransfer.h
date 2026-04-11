@@ -6,6 +6,8 @@
 #include "Client.h"
 
 class Connection;
+class Data;
+class DataResource;
 class TerminalClient;
 class SimpleMessage;
 class FileTransfer;
@@ -15,6 +17,7 @@ public:
   virtual void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer,
                                           std::shared_ptr<Message> msg);
   virtual void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer);
+  virtual void OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) = 0;
   virtual void OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) = 0;
 protected:
   bool MaybeReleaseTransferIfEnded(std::shared_ptr<FileTransfer> transfer);
@@ -32,6 +35,7 @@ public:
     IDLE = 0,
     AWAITING_INIT_MSG,
     AWAITING_ACK_MSG,
+    AWAITING_HANDLER_RDY,
     SENDING_DATA,
     RECEIVING_DATA,
     DONE,
@@ -42,6 +46,7 @@ public:
               ,uint32_t req_id
               ,const std::string& req_file_path
               ,bool is_get_request);
+  ~FileTransfer();
   uint32_t GetRequestId();
   const std::string& GetRequestPath();
   uint32_t GetDataTransferCounter();
@@ -60,6 +65,7 @@ public:
   bool HasFailed();
   bool SaveToOutputDirectory(std::shared_ptr<SimpleMessage> msg, const std::string& dir_path);
   void HandleTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data);
+  void SendTransferAckMessage();
 private:
   void SendInitResponse();
   void HandleFileTransferMsg(std::shared_ptr<Message> msg);
@@ -73,6 +79,7 @@ private:
   std::string _req_file_path;
   std::shared_ptr<Client> _client;
   std::shared_ptr<Data> _serialized_dir;
+  std::shared_ptr<DataResource> _prepared_data;
   bool _is_get_request;
   bool _is_directory_listing_request;
   State _current_state;

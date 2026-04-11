@@ -1,3 +1,5 @@
+import View from "./view.js";
+import RemoteHost from "./remote.host.js";
 
 class AddButtonView extends View{
   constructor() {
@@ -79,7 +81,7 @@ class FilesButtonView extends View{
 
 
 
-class RemoteHostTermButton extends View {
+export default class RemoteHostTermButton extends View {
 
   static State = Object.freeze({
     IDLE: 0,

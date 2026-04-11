@@ -55,7 +55,7 @@ int main(int argc, char** args) {
   }
 
   auto ws_server = std::make_shared<WebsocketServer>();
-  auto web_app_server = std::make_shared<WebAppServer>(terminal_server, web_app_listen_all_connections);
+  auto web_app_server = std::make_shared<WebAppServer>(ws_server, terminal_server, web_app_listen_all_connections);
 
   terminal_server->Init(web_app_server, server_obj);
   bool web_app_started = ws_server->Init(connection, web_app_server, web_app_server, WEB_APP_LISTEN_PORT);

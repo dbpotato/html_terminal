@@ -1,4 +1,9 @@
-class FileModeNode extends View {
+import View from "./view.js";
+import AppEvent from "./app.event.js";
+import MessageBuilder from "./message.builder.js";
+import WebApp from "./web.app.js";
+
+export default class FileModeNode extends View {
     constructor(terminalId) {
       super();
       this.id = terminalId;
@@ -7,7 +12,7 @@ class FileModeNode extends View {
       this.current_elem = null;
       this.current_path = null;
       this.createNode();
-      document.webApp.messenger.send(MessageBuilder.makeFileReq(this.id, "/", true));
+      this.sendFileSystemRequest("/", true);
     }
 
     createNode() {
@@ -21,8 +26,14 @@ class FileModeNode extends View {
 
       this.contnet = document.createElement("div");
       this.contnet.setAttribute("id", "file_node_content");
+
       this.makeListLabels();
       this.addObj(this.contnet);
+    }
+
+    sendFileSystemRequest(req_path, isDir) {
+      let msg = MessageBuilder.makeFileSystemReq(this.id, req_path, isDir?1:0);
+      WebApp.instance().messenger.send(msg);
     }
 
     timestampToString(timestamp) {
@@ -106,7 +117,6 @@ class FileModeNode extends View {
 
     onClicked(elem) {
       this.current_elem = elem;
-      console.log(elem.name);
       let target = "";
       if(elem.display_name == "..") {
         target = this.current_path.substring(0, this.current_path.lastIndexOf('/'));
@@ -117,16 +127,11 @@ class FileModeNode extends View {
         target = (this.current_path == "/") ? ("/" + elem.name) : (this.current_path + "/" + elem.name);
       }
       if(elem.is_dir) {
-        document.webApp.messenger.send(MessageBuilder.makeFileReq(this.id, target, true));
+        this.sendFileSystemRequest(target, true);
       } else if(elem.size > 0) {
-        let element = document.createElement('a');
-        element.setAttribute("href", 'download?'+this.id+"&"+target);
-        element.setAttribute("download", target.replace(/^.*[\\/]/, ''));
-
-        element.style.display = 'none';
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
+        this.sendFileSystemRequest(target, false);
+      } else{
+        WebApp.instance().pushEvent(this, AppEvent.CreateTerminalError("This file is empty : " + target));
       }
     }
   }

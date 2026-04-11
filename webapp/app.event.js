@@ -1,47 +1,44 @@
-class AppEvent {
-  constructor() {
-    this.type = "Empty";
+export default class AppEvent {
+  constructor(type) {
+    this.type = type;
   }
-}
-
-class AppEventTerminalAdded extends AppEvent {
-  constructor(hostId, terminalId) {
-    super();
-    this.type = "TerminalAdded";
-    this.hostId = hostId;
-    this.terminalId = terminalId;
+  static CreateTerminalAdded(hostId, terminalId) {
+    let  event = new AppEvent("TerminalAdded");
+    event.hostId = hostId;
+    event.terminalId = terminalId;
+    return event;
+  } 
+  static CreateTerminalClosed(hostId, terminalId) {
+    let event = new AppEvent("TerminalClosed");
+    event.hostId = hostId;
+    event.terminalId = terminalId;
+    return event;
   }
-}
-
-class AppEventTerminalClosed extends AppEvent {
-  constructor(hostId, terminalId) {
-    super();
-    this.type = "TerminalClosed";
-    this.hostId = hostId;
-    this.terminalId = terminalId;
+  static CreateHostSelected(host) {
+    let event = new AppEvent("HostSelected");
+    event.host = host;
+    return event;
   }
-}
-
-class AppEventHostSelected extends AppEvent {
-  constructor(host) {
-    super();
-    this.type = "HostSelected";
-    this.host = host;
+  static CreateHostDisconnected(hostId) {
+    let event = new AppEvent("HostDisconnected");
+    event.hostId = hostId;
+    return event;
   }
-}
-
-class AppEventHostDisconnected extends AppEvent {
-  constructor(hostId) {
-    super();
-    this.type = "HostDisconnected";
-    this.hostId = hostId;
+  static CreateTerminalSelected(terminalNode) {
+    let event = new AppEvent("TerminalSelected");
+    event.terminalNode = terminalNode;
+    return event;
   }
-}
-
-class AppEventTerminalSelected extends AppEvent {
-  constructor(terminalNode) {
-    super();
-    this.type = "TerminalSelected";
-    this.terminalNode = terminalNode;
+  static CreateTerminalError(errorMsg) {
+    let event = new AppEvent("TerminalError");
+    event.errorMsg = errorMsg;
+    return event;
+  }
+  static CreateDirectoryListing(terminalId, reqPath, files) {
+    let event = new AppEvent("DirectoryListing");
+    event.terminalId = terminalId;
+    event.reqPath = reqPath;
+    event.files = files;
+    return event;
   }
 }

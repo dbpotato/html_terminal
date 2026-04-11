@@ -360,13 +360,22 @@ std::shared_ptr<FileTransfer> TerminalServer::CreateFileRequest(int remote_host_
   return request;
 }
 
+void TerminalServer::OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) {
+  _webapp_server->HandleFileTransferAccepted(file_transfer);
+}
 
 void TerminalServer::OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
   _webapp_server->HandleFileTransferFailed(file_transfer);
   MaybeReleaseTransferIfEnded(file_transfer);
 }
+
 void TerminalServer::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
   _webapp_server->HandleFileTransferDataReceived(file_transfer, msg);
+}
+
+void TerminalServer::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) {
+  _webapp_server->HandleFileTransferCompleted(file_transfer);
+  FileTransferHandlerServer::OnFileTransferCompleted(file_transfer);
 }
 
 std::shared_ptr<FileTransferHandler> TerminalServer::GetSptr() {

@@ -74,8 +74,10 @@ public:
   void OnClientUnresponsive(std::shared_ptr<Client> client) override;
 
   std::shared_ptr<FileTransfer> CreateFileRequest(int remote_host_id, uint32_t file_transfer_id, const std::string& path, bool is_download_from_client);
+  void OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) override;
   void OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) override;
   void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) override;
+  void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) override;
   std::shared_ptr<FileTransferHandler> GetSptr() override;
 
 protected:

@@ -41,9 +41,10 @@ const std::string TERMINAL_CLIENT_NAME_ENV = "TERMINAL_CLIENT_NAME";
 std::shared_ptr<TerminalClient> TerminalClient::Create(std::shared_ptr<Connection> connection,
                                                                   int port,
                                                                   const std::string& host,
-                                                                  const std::string& shell_cmd) {
+                                                                  const std::string& shell_cmd,
+                                                                  const std::string& terminal_type) {
   std::shared_ptr<TerminalClient> client;
-  client.reset(new TerminalClient(connection, port, host, shell_cmd));
+  client.reset(new TerminalClient(connection, port, host, shell_cmd, terminal_type));
   client->Init();
   return client;
 }
@@ -51,11 +52,13 @@ std::shared_ptr<TerminalClient> TerminalClient::Create(std::shared_ptr<Connectio
 TerminalClient::TerminalClient(std::shared_ptr<Connection> connection,
                       int port,
                       const std::string& host,
-                      const std::string& shell_cmd)
+                      const std::string& shell_cmd,
+                      const std::string& terminal_type)
     : _connection(connection)
     , _port(port)
     , _host(host)
     , _shell_cmd(shell_cmd)
+    , _terminal_type(terminal_type)
     , _pending_msg_counter(0) {
   _thread = std::make_shared<ThreadLoop>();
   _thread->Init();
@@ -181,7 +184,7 @@ void TerminalClient::HandleCreateTerminal(std::shared_ptr<Data> msg_data) {
   }
 
   if(!_term_handler) {
-    _term_handler = std::make_shared<TerminalHandler>(shared_this, _thread, _shell_cmd);
+    _term_handler = std::make_shared<TerminalHandler>(shared_this, _thread, _shell_cmd, _terminal_type);
   }
 
   uint8_t result = (uint8_t)_term_handler->CreateTerminal(terminal_id);

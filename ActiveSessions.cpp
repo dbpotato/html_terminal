@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2025 Adam Kaniewski
+Copyright (c) 2025 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -36,27 +36,59 @@ uint32_t ActiveSessions::FileTransferSession::NextId() {
   return ++_id_counter;
 }
 
-ActiveSessions::FileTransferSession::FileTransferSession(std::shared_ptr<Client> web_app_client)
-    : _web_app_client(web_app_client)
-    , _terminal_id(0) {
+ActiveSessions::FileTransferSession::FileTransferSession(bool is_dir_listing)
+    : _is_dir_listing(is_dir_listing)
+    , _terminal_id(0)
+    , _remote_host_id(0) {
   _id = NextId();
+}
+
+bool ActiveSessions::FileTransferSession::IsDirListing() {
+  return _is_dir_listing;
 }
 
 uint32_t ActiveSessions::FileTransferSession::GetId()  {
   return _id;
 }
 
-void ActiveSessions::FileTransferSession::SetTerminalId(uint32_t terminal_id) {
+void ActiveSessions::FileTransferSession::SetTerminalAndHostId(uint32_t terminal_id, uint32_t remote_host_id) {
   _terminal_id = terminal_id;
+  _remote_host_id = remote_host_id;
 }
 
 uint32_t ActiveSessions::FileTransferSession::GetTerminalId() {
   return _terminal_id;
 }
 
-std::shared_ptr<Client> ActiveSessions::FileTransferSession::GetWebClient() {
-  return _web_app_client;
+uint32_t ActiveSessions::FileTransferSession::GetRemoteHostId() {
+  return _remote_host_id;
 }
+
+void ActiveSessions::FileTransferSession::SetWebAppWSClient(std::weak_ptr<Client> client) {
+  _web_app_ws_client = client;
+}
+
+void ActiveSessions::FileTransferSession::SetWebAppTransferClient(std::shared_ptr<Client> client) {
+  _web_app_transfer_client = client;
+}
+
+void ActiveSessions::FileTransferSession::SetFileTransfer(std::weak_ptr<FileTransfer> file_transfer) {
+  _file_transfer = file_transfer;
+}
+
+std::weak_ptr<Client> ActiveSessions::FileTransferSession::GetWebAppWSClient() {
+  return _web_app_ws_client;
+}
+
+std::shared_ptr<Client> ActiveSessions::FileTransferSession::GetWebAppTransferClient() {
+  return _web_app_transfer_client;
+}
+
+std::weak_ptr<FileTransfer> ActiveSessions::FileTransferSession::GetFileTransfer() {
+  return _file_transfer;
+}
+
+
 
 
 ActiveSessions::WebAppSession::WebAppSession(std::shared_ptr<Client> web_app_client)
@@ -97,20 +129,18 @@ std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::CreateWebAppSessi
 
 std::shared_ptr<Client> ActiveSessions::GetWebAppClientForTerminal(uint32_t terminal_id) {
   std::shared_ptr<Client> result;
-  for(auto& session_kv : _web_app_sessions) {
-    if(session_kv.second->HasTerminalId(terminal_id)) {
-      result = session_kv.second->GetClient();
-      break;
-    }
+  auto session = GetWebAppSessionByTerminalId(terminal_id);
+  if(session) {
+    result = session->GetClient();
   }
   return result;
 }
 
-std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::GetWebAppSession(std::shared_ptr<Client> web_app_client) {
-  return GetWebAppSession(web_app_client->GetId());
+std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::GetWebAppSessionByClient(std::shared_ptr<Client> web_app_client) {
+  return GetWebAppSessionByClientId(web_app_client->GetId());
 }
 
-std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::GetWebAppSession(uint32_t web_app_client_id) {
+std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::GetWebAppSessionByClientId(uint32_t web_app_client_id) {
   std::shared_ptr<WebAppSession> result;
   auto it = _web_app_sessions.find(web_app_client_id);
   if(it != _web_app_sessions.end()) {
@@ -119,6 +149,16 @@ std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::GetWebAppSession(
   return result;
 }
 
+std::shared_ptr<ActiveSessions::WebAppSession> ActiveSessions::GetWebAppSessionByTerminalId(uint32_t terminal_id) {
+  std::shared_ptr<WebAppSession> result;
+  for(auto& session_kv : _web_app_sessions) {
+    if(session_kv.second->HasTerminalId(terminal_id)) {
+      result = session_kv.second;
+      break;
+    }
+  }
+  return result;
+}
 
 void ActiveSessions::GetAllWebAppSessions(std::vector<std::shared_ptr<ActiveSessions::WebAppSession>>& out_sessions_vec) {
   for(auto& session_kv : _web_app_sessions) {
@@ -172,8 +212,8 @@ bool ActiveSessions::GetRemoteHostByTerminal(uint32_t terminal_id, uint32_t& out
   return false;
 }
 
-std::shared_ptr<ActiveSessions::FileTransferSession> ActiveSessions::CreateFileTransferSession(std::shared_ptr<Client> web_app_client) {
-  auto session = std::make_shared<ActiveSessions::FileTransferSession>(web_app_client);
+std::shared_ptr<ActiveSessions::FileTransferSession> ActiveSessions::CreateFileTransferSession(bool is_dir_listing) {
+  auto session = std::make_shared<ActiveSessions::FileTransferSession>(is_dir_listing);
   _transfer_sessions.insert({session->GetId(), session});
   return session;
 }

@@ -45,6 +45,9 @@ FileTransfer::FileTransfer(std::weak_ptr<FileTransferHandler> listener
     , _data_transfer_counter(0) {
 }
 
+FileTransfer::~FileTransfer() {
+}
+
 bool FileTransfer::SwitchState(FileTransfer::State new_state) {
   bool rejected = true;
   switch(_current_state) {
@@ -57,6 +60,13 @@ bool FileTransfer::SwitchState(FileTransfer::State new_state) {
       }
       break;
     case FileTransfer::State::AWAITING_INIT_MSG:
+      {
+        if(new_state == FileTransfer::State::AWAITING_HANDLER_RDY) {
+          rejected = false;
+        }
+      }
+      break;
+    case FileTransfer::State::AWAITING_HANDLER_RDY:
       {
         if(new_state == FileTransfer::State::RECEIVING_DATA) {
           rejected = false;
@@ -220,6 +230,12 @@ void FileTransfer::SendInitResponse() {
             is_valid = false;
             file_length = 0;
           }
+          _prepared_data = DataResource::CreateFromFile(_req_file_path);
+          if(!_prepared_data) {
+            DLOG(error, "Reading data failed on : {}", _req_file_path);
+            is_valid = false;
+            file_length = 0;
+          }
         }
       }
     }
@@ -242,7 +258,7 @@ void FileTransfer::SendInitResponse() {
 }
 
 void FileTransfer::HandleTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data) {
-  if(!SwitchState(FileTransfer::State::RECEIVING_DATA)) {
+  if(!SwitchState(FileTransfer::State::AWAITING_HANDLER_RDY)) {
     return;
   }
 
@@ -276,7 +292,19 @@ void FileTransfer::HandleTransferInit(std::shared_ptr<Client> client, std::share
     OnFail();
     return;
   }
+  
+  auto listener = _listener.lock();
+  if(listener) {
+    listener->OnFileTransferReqAccepted(shared_from_this());
+  } else {
+    DLOG(error, "HandleTransferInit : cant' lock listener");
+  }
+}
 
+void FileTransfer::SendTransferAckMessage() {
+  if(!SwitchState(FileTransfer::State::RECEIVING_DATA)) {
+    return;
+  }
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::FILE_TRANSFER_ACK);
   _client->SetMsgBuilder(nullptr);
   _client->Send(msg);
@@ -316,23 +344,13 @@ void FileTransfer::SendRequestedData() {
     return;
   }
 
-  std::error_code fs_error;
-  std::filesystem::path path(_req_file_path);
   std::shared_ptr<Message> content_msg;
 
-  bool is_dir = std::filesystem::is_directory(path, fs_error);
-  if(fs_error) {
-    DLOG(error, "is_directory failed on : {}", _req_file_path);
-  }
-
-  if(is_dir && _serialized_dir) {
+  if(_is_directory_listing_request) {
     auto resource = std::make_shared<DataResource>(_serialized_dir);
     content_msg = std::make_shared<Message>(resource);
   } else {
-    auto file_resource = DataResource::CreateFromFile(_req_file_path);
-    if(file_resource != nullptr) {
-      content_msg = std::make_shared<Message>(file_resource);
-    }
+    content_msg = std::make_shared<Message>(_prepared_data);
   }
   _client->Send(content_msg);
 }

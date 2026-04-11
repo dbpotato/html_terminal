@@ -68,8 +68,8 @@ void JsonMsg::TryDetectType() {
     _type = Type::TERMINAL_KEY_EVENT;
   else if(!type.compare("terminal_resize"))
     _type = Type::TERMINAL_RESIZE;
-  else if(!type.compare("file_req"))
-    _type = Type::FILE_TRANSFER_REQ;
+  else if(!type.compare("fs_req"))
+    _type = Type::FS_REQ;
 }
 
 JsonMsg::Type JsonMsg::GetType() {
@@ -168,6 +168,23 @@ std::string JsonMsg::MakeDirectoryListingMsg(int terminal_id, const std::string&
     jfile_array.push_back(info);
   }
   jobj["files"] = jfile_array;
+  return jobj.dump();
+}
+
+std::string JsonMsg::MakeFileAccessAcceptedMsg(int request_id, const std::string& req_path) {
+  auto jobj = nlohmann::json::object();
+  jobj["type"] = "file_access_accepted";
+  jobj["request_id"] = request_id;
+  jobj["req_path"] = req_path;
+  return jobj.dump();
+}
+
+std::string JsonMsg::MakeFileAccessFailedMsg(int terminal_id, int remote_host_id, const std::string& req_file) {
+  auto jobj = nlohmann::json::object();
+  jobj["type"] = "file_access_failed";
+  jobj["terminal_id"] = terminal_id;
+  jobj["host_id"] = remote_host_id;
+  jobj["req_file"] = req_file;
   return jobj.dump();
 }
 

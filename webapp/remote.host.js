@@ -1,4 +1,10 @@
-class RemoteHost extends View {
+import View from "./view.js";
+import WebApp from "./web.app.js";
+import RemoteHostTermButton from "./remote.host.term.bt.js";
+import RemoteHostList from "./remote.host.list.js";
+import AppEvent from "./app.event.js";
+
+export default class RemoteHost extends View {
   constructor(hostId, hostIp, hostUserName, hostName, hostList) {
     super();
     this.buttonPanel = null;
@@ -70,7 +76,7 @@ class RemoteHost extends View {
     this.selectedBt = termButton;
     this.activeTerminal = termButton.terminal;
     termButton.onSelected();
-    document.webApp.pushEvent(this, new AppEventTerminalSelected(this.activeTerminal));
+    WebApp.instance().pushEvent(this, AppEvent.CreateTerminalSelected(this.activeTerminal));
   }
 
   onTermBtSelectClicked(termButton) {
@@ -79,13 +85,13 @@ class RemoteHost extends View {
 
   onTermBtAddClicked(termButton) {
     this.connectingBt = termButton;
-    document.webApp.terminalManager.sendNewTerminalRequest(this.id);
+    WebApp.instance().terminalManager.sendNewTerminalRequest(this.id);
     termButton.setState(RemoteHostTermButton.State.ACTIVATING);
   }
 
   onTermBtCloseClicked(termButton) {
     this.removeTerminalButton(termButton);
-    document.webApp.terminalManager.terminalCloseRequested(termButton.terminal.id);
+    WebApp.instance().terminalManager.terminalCloseRequested(termButton.terminal.id);
   }
 
   addTerminal(terminal) {
@@ -151,7 +157,7 @@ class RemoteHost extends View {
   }
 
   onClicked() {
-    document.webApp.pushEvent(this, new AppEventHostSelected(this));
+    WebApp.instance().pushEvent(this, new AppEvent.CreateHostSelected(this));
   }
 
   onSelected() {

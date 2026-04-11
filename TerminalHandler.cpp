@@ -28,11 +28,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 TerminalHandler::TerminalHandler(std::shared_ptr<TerminalListener> parent_listener,
                               std::shared_ptr<ThreadLoop> thread,
-                              const std::string& shell_cmd)
+                              const std::string& shell_cmd,
+                              const std::string& terminal_type)
     : _parent_listener(parent_listener)
     , _thread(thread)
     , _read_enabled(true)
-    , _shell_cmd(shell_cmd) {
+    , _shell_cmd(shell_cmd)
+    , _terminal_type(terminal_type) {
 }
 
 bool TerminalHandler::CreateTerminal(uint32_t terminal_id) {
@@ -49,7 +51,7 @@ bool TerminalHandler::CreateTerminal(uint32_t terminal_id) {
 
   auto term = std::make_shared<Terminal>(terminal_id, shared_from_this());
   _terminals[terminal_id] = term;
-  return term->Init(_shell_cmd);
+  return term->Init(_shell_cmd, _terminal_type);
 }
 
 void TerminalHandler::DeleteTerminal(uint32_t terminal_id) {

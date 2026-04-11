@@ -1,14 +1,37 @@
-class TerminalView extends View {
+import View from "./view.js";
+import AlertNode from "./alert.js"
+import TerminalNode from "./terminal.node.js";
+import FileModeNode from "./filemode.node.js";
+import WebApp from "./web.app.js";
+
+export default class TerminalView extends View {
   constructor() {
     super();
     this.terminals = new Map();
     this.currentTerminal = null;
+    this.errorAlert = null;
     this.createNode();
+    WebApp.instance().addEventListener(this);
   }
 
   createNode() {
     super.createNode();
     this.node.setAttribute("id", "terminal_view");
+    this.errorAlert = new AlertNode();
+    this.addObj(this.errorAlert.node);
+  }
+
+  onEvent(appEvent) {
+    switch(appEvent.type) {
+      case "DirectoryListing" :
+        this.onDirectoryListen(appEvent.terminalId, appEvent.reqPath, appEvent.files);
+        break;
+      case "TerminalError" :
+        this.showError(appEvent.errorMsg);
+        break;
+      default:
+        break;
+    }
   }
 
   clear() {
@@ -58,10 +81,10 @@ class TerminalView extends View {
     }
   }
 
-  onDirectoryListen(id, req_path, files) {
-    let terminal = this.getTerminalById(id);
+  onDirectoryListen(terminalId, reqPath, files) {
+    let terminal = this.getTerminalById(terminalId);
     if(terminal != null) {
-      terminal.fileModeNode.setDirectoryContent(req_path, files);
+      terminal.fileModeNode.setDirectoryContent(reqPath, files);
     }
   }
 
@@ -80,5 +103,10 @@ class TerminalView extends View {
 
     terminal.deleteNode();
     this.terminals.delete(terminal.id);
+  }
+
+  showError(errorMsg) {
+    this.errorAlert.setText(errorMsg);
+    this.errorAlert.show();
   }
 }

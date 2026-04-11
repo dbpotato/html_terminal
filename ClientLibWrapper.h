@@ -39,9 +39,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 static const int DEFAULT_TERMINAL_SERVER_PORT = 4476;
 static const std::string DEFAULT_TERMINAL_SERVER_HOST = "localhost";
 static const std::string DEFAULT_TERMINAL_SHELL_CMD = "/bin/bash";
+static const std::string DEFAULT_TERMINAL_TYPE = "xterm-256color";
 static const std::string ENV_SERVER_HOST_VAR_NAME = "TERMINAL_SERVER_HOST";
 static const std::string ENV_SERVER_PORT_VAR_NAME = "TERMINAL_SERVER_PORT";
-static const std::string ENV_TERMINAL_SHELL_CMD  = "TERMINAL_SHELL_CMD";
+static const std::string ENV_TERMINAL_SHELL_CMD = "TERMINAL_SHELL_CMD";
+static const std::string ENV_TERMINAL_TYPE = "TERMINAL_TYPE";
 
 std::string getEnvVar( std::string const & key ) {
   char * val = getenv( key.c_str() );
@@ -60,11 +62,13 @@ private:
       }
     }
     if(_lib_handler) {
-      _init = (void(*)(int, const char*, const char*)) dlsym(_lib_handler, "init");
+      _init = (void(*)(int, const char*, const char*, const char*)) dlsym(_lib_handler, "init");
 
       if(_init) {
         std::string host = getEnvVar(ENV_SERVER_HOST_VAR_NAME);
         std::string cmd = getEnvVar(ENV_TERMINAL_SHELL_CMD);
+        std::string term_type = getEnvVar(ENV_TERMINAL_TYPE);
+
         int port = DEFAULT_TERMINAL_SERVER_PORT;
 
         if(host.empty()) {
@@ -75,12 +79,16 @@ private:
           cmd = DEFAULT_TERMINAL_SHELL_CMD;
         }
 
+        if(term_type.empty()) {
+          term_type = DEFAULT_TERMINAL_TYPE;
+        }
+
         std::string port_str = getEnvVar(ENV_SERVER_PORT_VAR_NAME);
         if(!port_str.empty()) {
           port = atoi(port_str.c_str());
         }
 
-        _init(port, host.c_str(), cmd.c_str());
+        _init(port, host.c_str(), cmd.c_str(), term_type.c_str());
         _is_valid = true;
       }
       else {
@@ -96,7 +104,7 @@ public:
   }
 
 protected:
-  void(*_init)(int, const char*, const char*);
+  void(*_init)(int, const char*, const char*, const char*);
   bool _is_valid;
   void* _lib_handler;
 };

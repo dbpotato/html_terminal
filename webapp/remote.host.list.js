@@ -1,11 +1,17 @@
-class RemoteHostList extends View {
+import View from "./view.js";
+import RemoteHost from "./remote.host.js";
+import WebApp from "./web.app.js"
+import TerminalManager from "./terminal.manager.js"
+
+
+export default class RemoteHostList extends View {
   constructor(terminalManager) {
     super();
     this.hosts = new Map();
     this.currentHost = null;
     this.manager = terminalManager;
     this.createNode();
-    document.webApp.addEventListener(this);
+    WebApp.instance().addEventListener(this);
   }
 
   clear() {
@@ -36,7 +42,6 @@ class RemoteHostList extends View {
   }
 
   addHost(hostId, hostIp, hostUserName, hostName) {
-    console.log("HostList size : " + this.hosts.size);
     let host = new RemoteHost(hostId, hostIp, hostUserName, hostName, this);
     this.hosts.set(hostId, host);
     this.addObj(host.node);

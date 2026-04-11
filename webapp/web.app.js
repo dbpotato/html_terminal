@@ -1,12 +1,21 @@
-class WebApp {
-  constructor() {
-    this.messenger = null;
-    this.terminalManager = null;
-    this.reconnectInfo = null;
-    this.listeners = new Array();
+import TerminalManager from "./terminal.manager.js";
+import Messenger from "./messenger.js";
+import AppEvent from "./app.event.js";
+import ReconnectInfo from "./reconnect.info.js";
+
+export default class WebApp {
+  static instance() {
+    return WebApp._instance || new WebApp();
   }
 
-  init() {
+  constructor() {
+    if(WebApp._instance) {
+      return WebApp._instance;
+    }
+    WebApp._instance = this;
+
+    this.listeners = new Array();
+
     this.terminalManager = new TerminalManager();
     this.terminalManager.showNoTerminalsInfo();
     document.body.appendChild(this.terminalManager.node);
@@ -38,6 +47,18 @@ class WebApp {
     this.terminalManager.clear();
   }
 
+  startFileDownload(requestId, reqPath) {
+    let element = document.createElement('a');
+    element.setAttribute("href", 'download?'+requestId);
+    element.setAttribute("download", reqPath.replace(/^.*[\\/]/, ''));
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  }
+
+
   onConnected() {
     this.reconnectInfo.disable();
     this.terminalManager.show();
@@ -54,11 +75,11 @@ class WebApp {
   }
 
   onHostDisconnected(hostId) {
-    this.pushEvent(this, new AppEventHostDisconnected(hostId));
+    this.pushEvent(this, AppEvent.CreateHostDisconnected(hostId));
   }
 
   onTerminalAdded(hostId, terminalId) {
-    this.pushEvent(this, new AppEventTerminalAdded(hostId, terminalId));
+    this.pushEvent(this, AppEvent.CreateTerminalAdded(hostId, terminalId));
   }
 
   onTerminalOutput(terminalId, msg) {
@@ -66,11 +87,19 @@ class WebApp {
   }
 
   onTerminalClosed(hostId, terminalId) {
-    this.pushEvent(this, new AppEventTerminalClosed(hostId, terminalId));
+    this.pushEvent(this, AppEvent.CreateTerminalClosed(hostId, terminalId));
   }
 
-  onDirectoryListen(terminalId, req_path, files) {
-    this.terminalManager.onDirectoryListen(terminalId, req_path, files);
+  onFileAccessAccepted(requestId, reqPath) {
+    this.startFileDownload(requestId, reqPath);
+  }
+
+  onFileAccessFailed(terminalId, hostId, reqPath) {
+    this.pushEvent(this, AppEvent.CreateTerminalError("Failed to access : " + reqPath));
+  }
+
+  onDirectoryListen(terminalId, reqPath, files) {
+    this.pushEvent(this, AppEvent.CreateDirectoryListing(terminalId, reqPath, files));
   }
 
   reconnect() {
@@ -81,3 +110,5 @@ class WebApp {
     this.messenger.send(MessageBuilder.makeCloseTerminalReq(terminalId));
   }
 };
+
+window.WebApp = WebApp;
