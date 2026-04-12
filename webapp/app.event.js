@@ -3,11 +3,11 @@ export default class AppEvent {
     this.type = type;
   }
   static CreateTerminalAdded(hostId, terminalId) {
-    let  event = new AppEvent("TerminalAdded");
+    let event = new AppEvent("TerminalAdded");
     event.hostId = hostId;
     event.terminalId = terminalId;
     return event;
-  } 
+  }
   static CreateTerminalClosed(hostId, terminalId) {
     let event = new AppEvent("TerminalClosed");
     event.hostId = hostId;

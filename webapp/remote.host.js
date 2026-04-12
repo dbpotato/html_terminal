@@ -157,7 +157,7 @@ export default class RemoteHost extends View {
   }
 
   onClicked() {
-    WebApp.instance().pushEvent(this, new AppEvent.CreateHostSelected(this));
+    WebApp.instance().pushEvent(this, AppEvent.CreateHostSelected(this));
   }
 
   onSelected() {
