@@ -36,8 +36,10 @@ export default class TerminalView extends View {
 
   clear() {
     this.terminals = new Map();
+    if(this.currentTerminal != null) {
+      this.removeObj(this.currentTerminal.node);
+    }
     this.currentTerminal = null;
-    this.clearNode();
   }
 
   createTerminalNode(terminalId) {
