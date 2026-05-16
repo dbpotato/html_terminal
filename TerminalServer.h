@@ -52,12 +52,11 @@ private:
 
 class TerminalServer
   : public MonitoringManager
-  , public FileTransferHandlerServer
   , public std::enable_shared_from_this<TerminalServer> {
 
 public:
-  void Init(std::shared_ptr<WebAppServer> server_impl,
-            std::shared_ptr<Server> proxy_server);
+  void Init(std::shared_ptr<WebAppServer> web_app_server,
+            std::shared_ptr<Server> remote_hosts_server);
 
   void CreateNewTerminal(uint32_t app_client_id, uint32_t remote_host_id);
   void ResizeTerminal(int remote_host_id, int terminal_id, int width, int height);
@@ -73,15 +72,10 @@ public:
   void CreateClient(std::shared_ptr<MonitorTask> task, const std::string& url, int port) override;
   void OnClientUnresponsive(std::shared_ptr<Client> client) override;
 
-  std::shared_ptr<FileTransfer> CreateFileRequest(int remote_host_id, uint32_t file_transfer_id, const std::string& path, bool is_download_from_client);
-  void OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) override;
-  void OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) override;
-  void OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) override;
-  void OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) override;
-  std::shared_ptr<FileTransferHandler> GetSptr() override;
+  std::shared_ptr<Client> GetClientByRemoteHostId(uint32_t remote_host_id);
 
 protected:
-  void HandleFileTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data) override;
+  void HandleFileTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data);
 
 private:
   uint32_t NextId();
@@ -97,5 +91,5 @@ private:
   std::map<uint32_t, RemoteHost> _remote_hosts;
   static std::atomic<uint32_t> _id_counter;
   std::shared_ptr<ThreadLoop> _thread;
-  std::shared_ptr<Server> _proxy_server; 
+  std::shared_ptr<Server> _remote_hosts_server; 
 };

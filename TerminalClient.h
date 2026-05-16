@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Adam Kaniewski
+Copyright (c) 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -41,7 +41,6 @@ class TerminalHandler;
 class TerminalClient
   : public MonitoringManager
   , public TerminalListener
-  , public FileTransferHandlerClient
   , public std::enable_shared_from_this<TerminalClient>  {
 public:
   static std::shared_ptr<TerminalClient> Create(std::shared_ptr<Connection> connection,
@@ -50,7 +49,6 @@ public:
                                                     const std::string& shell_cmd,
                                                     const std::string& terminal_type);
 
-  std::shared_ptr<FileTransferHandler> GetSptr() override;
   void OnClientRead(std::shared_ptr<Client> client, std::shared_ptr<Message> msg) override;
   bool OnClientConnecting(std::shared_ptr<Client> client, NetError err) override;
   void OnClientConnected(std::shared_ptr<Client> client) override;
@@ -62,7 +60,6 @@ public:
 
   void OnTerminalRead(std::shared_ptr<Terminal> terminal, std::shared_ptr<Data> output) override;
   void OnTerminalEnd(std::shared_ptr<Terminal> terminal) override;
-  void OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) override;
 
   void DeleteTerminals();
 
@@ -96,4 +93,5 @@ private :
   std::shared_ptr<TerminalHandler> _term_handler;
   std::shared_ptr<ThreadLoop> _thread;
   std::shared_ptr<Client> _client;
+  std::shared_ptr<FileTransferHandlerClient> _file_transfer_handler;
 };

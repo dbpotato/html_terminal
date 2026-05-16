@@ -134,9 +134,4 @@ export default class TerminalManager extends View {
   onTerminalOutput(id, output) {
     this.terminalView.onTerminalOutput(id, output);
   }
-
-  onDirectoryListen(id, req_path, files) {
-    //TODO event?
-    this.terminalView.onDirectoryListen(id, req_path, files);
-  }
 }

@@ -1,3 +1,26 @@
+/*
+Copyright (c) 2025 - 2026 Adam Kaniewski
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 #include "FileTransfer.h"
 #include "Connection.h"
 #include "SimpleMessage.h"
@@ -11,24 +34,17 @@
 
 
 void FileTransferHandler::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer,
-                                          std::shared_ptr<Message> msg) {
+                                          std::shared_ptr<Message> msg,
+                                          bool completed,
+                                          uint32_t msg_counter) {
 }
 
-void FileTransferHandler::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) {
-  _transfers.erase(file_transfer->GetRequestId());
+void FileTransferHandler::OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) {
 }
 
-bool FileTransferHandler::MaybeReleaseTransferIfEnded(std::shared_ptr<FileTransfer> transfer) {
-  if(transfer->HasFailed() || (transfer->GetExpectedFileSize() == transfer->GetReceivedFileSize())) {
-    _transfers.erase(transfer->GetRequestId());
-    return true;
-  }
-  return false;
+void FileTransferHandler::OnFileTransferDataSent(std::shared_ptr<FileTransfer> file_transfer){
 }
 
-void FileTransferHandler::ReleaseAllTransfers() {
-  _transfers.clear();
-}
 
 FileTransfer::FileTransfer(std::weak_ptr<FileTransferHandler> listener
                           ,uint32_t req_id
@@ -110,16 +126,16 @@ const std::string& FileTransfer::GetRequestPath() {
   return _req_file_path;
 }
 
-uint32_t FileTransfer::GetDataTransferCounter() {
-  return _data_transfer_counter;
-}
-
 uint64_t FileTransfer::GetExpectedFileSize() {
   return _expected_file_size;
 }
 
 uint64_t FileTransfer::GetReceivedFileSize() {
   return _received_file_size;
+}
+
+std::shared_ptr<Client> FileTransfer::GetClient() {
+  return _client;
 }
 
 void FileTransfer::SendTransferRequestMsg(std::shared_ptr<Client> client) {
@@ -188,7 +204,7 @@ void FileTransfer::OnMsgSent(std::shared_ptr<Client> client, std::shared_ptr<Mes
   SwitchState(FileTransfer::State::DONE);
   auto listener = _listener.lock();
   if(listener) {
-    listener->OnFileTransferCompleted(shared_from_this());
+    listener->OnFileTransferDataSent(shared_from_this());
   } else {
     DLOG(error, "Cant' lock listener");
   }
@@ -262,8 +278,9 @@ void FileTransfer::HandleTransferInit(std::shared_ptr<Client> client, std::share
     return;
   }
 
-
   _client = client;
+  _client->SetManager(shared_from_this());
+
   uint32_t req_id = 0;
   uint8_t is_valid = 0;
   uint8_t is_directory_listing = 0;
@@ -281,18 +298,16 @@ void FileTransfer::HandleTransferInit(std::shared_ptr<Client> client, std::share
   }
 
   if(!is_valid) {
-    //TODO
     OnFail();
     return;
   }
 
   if(!_is_get_request) {
-    //TODO
     DLOG(error, "Got unsupported non get request");
     OnFail();
     return;
   }
-  
+
   auto listener = _listener.lock();
   if(listener) {
     listener->OnFileTransferReqAccepted(shared_from_this());
@@ -321,19 +336,18 @@ void FileTransfer::OnFail() {
 }
 
 void FileTransfer::HandleFileTransferMsg(std::shared_ptr<Message> msg) {
+  bool completed = false;
   _data_transfer_counter++;
   _received_file_size +=  msg->GetDataResource()->GetSize();
 
   if(_received_file_size == _expected_file_size) {
     SwitchState(FileTransfer::State::DONE);
+    completed = true;
   }
 
   auto listener = _listener.lock();
   if(listener) {
-    listener->OnFileTransferDataReceived(shared_from_this(), msg);
-    if(_current_state == FileTransfer::State::DONE) {
-      listener->OnFileTransferCompleted(shared_from_this());
-    }
+    listener->OnFileTransferDataReceived(shared_from_this(), msg, completed, _data_transfer_counter);
   } else {
     DLOG(error, "HandleFileTransferDataMsg : cant' lock listener");
   }

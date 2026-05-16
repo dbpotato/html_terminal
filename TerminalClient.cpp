@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Adam Kaniewski
+Copyright (c) 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -43,10 +43,10 @@ std::shared_ptr<TerminalClient> TerminalClient::Create(std::shared_ptr<Connectio
                                                                   const std::string& host,
                                                                   const std::string& shell_cmd,
                                                                   const std::string& terminal_type) {
-  std::shared_ptr<TerminalClient> client;
-  client.reset(new TerminalClient(connection, port, host, shell_cmd, terminal_type));
-  client->Init();
-  return client;
+  std::shared_ptr<TerminalClient> result;
+  result.reset(new TerminalClient(connection, port, host, shell_cmd, terminal_type));
+  result->Init();
+  return result;
 }
 
 TerminalClient::TerminalClient(std::shared_ptr<Connection> connection,
@@ -62,14 +62,12 @@ TerminalClient::TerminalClient(std::shared_ptr<Connection> connection,
     , _pending_msg_counter(0) {
   _thread = std::make_shared<ThreadLoop>();
   _thread->Init();
+  _file_transfer_handler = std::make_shared<FileTransferHandlerClient>(_thread);
 }
 
 void TerminalClient::Init() {
+  _term_handler = std::make_shared<TerminalHandler>(shared_from_this(), _thread, _shell_cmd, _terminal_type);
   ConnectionChecker::MointorUrl(_host, _port, shared_from_this());
-}
-
-std::shared_ptr<FileTransferHandler> TerminalClient::GetSptr() {
-  return shared_from_this();
 }
 
 void TerminalClient::SendPingToClient(std::shared_ptr<Client> client) {
@@ -183,10 +181,6 @@ void TerminalClient::HandleCreateTerminal(std::shared_ptr<Data> msg_data) {
     return;
   }
 
-  if(!_term_handler) {
-    _term_handler = std::make_shared<TerminalHandler>(shared_this, _thread, _shell_cmd, _terminal_type);
-  }
-
   uint8_t result = (uint8_t)_term_handler->CreateTerminal(terminal_id);
 
   auto data = std::make_shared<Data>(5);
@@ -210,9 +204,7 @@ void TerminalClient::HandleDeleteTerminal(std::shared_ptr<Data> msg_data) {
     DLOG(error, "TerminalClient::HandleDeleteTerminal : Failed to parse terminal_id");
     return;
   }
-  if(_term_handler) {
-    _term_handler->DeleteTerminal(terminal_id);
-  }
+  _term_handler->DeleteTerminal(terminal_id);
 }
 
 void TerminalClient::HandleResizeTerminal(std::shared_ptr<Data> msg_data) {
@@ -232,9 +224,8 @@ void TerminalClient::HandleResizeTerminal(std::shared_ptr<Data> msg_data) {
   data_retrieved = data_retrieved && msg_data->CopyTo(&terminal_id, 0, 4);
   data_retrieved = data_retrieved && msg_data->CopyTo(&width, 4, 2);
   data_retrieved = data_retrieved && msg_data->CopyTo(&height, 6, 2);
-  if(_term_handler) {
-    _term_handler->Resize(terminal_id, (int)width, (int)height);
-  }
+
+  _term_handler->Resize(terminal_id, (int)width, (int)height);
 }
 
 void TerminalClient::HandleTerminalWrite(std::shared_ptr<Data> msg_data) {
@@ -253,14 +244,13 @@ void TerminalClient::HandleTerminalWrite(std::shared_ptr<Data> msg_data) {
   }
 
   msg_data->AddOffset(4);
-  if(_term_handler) {
-    _term_handler->SendKeyEvent(terminal_id, msg_data->ToString());
-  }
+
+  _term_handler->SendKeyEvent(terminal_id, msg_data->ToString());
 }
 
 void TerminalClient::HandleDisconnected() {
   _pending_msg_counter.store(0);
-  ReleaseAllTransfers();
+  _file_transfer_handler->ReleaseAll();
   DeleteTerminals();
 }
 
@@ -309,9 +299,8 @@ void TerminalClient::EnableReadFromTerminals(bool enabled) {
     _thread->Post(std::bind(&TerminalClient::EnableReadFromTerminals, shared_this, enabled));
     return;
   }
-  if(_term_handler) {
-    _term_handler->EnableReadFromTerminals(enabled);
-  }
+
+  _term_handler->EnableReadFromTerminals(enabled);
 }
 
 void TerminalClient::HandleFileRequest(std::shared_ptr<Data> msg_data) {
@@ -334,9 +323,6 @@ void TerminalClient::HandleFileRequest(std::shared_ptr<Data> msg_data) {
     return;
   }
 
-  MakeFileTransferRequest(req_id, is_download_from_client, path, _connection, _host, _port);
+  _file_transfer_handler->MakeFileTransferRequest(req_id, path, _connection, _host, _port);
 }
 
-void TerminalClient::OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
-  MaybeReleaseTransferIfEnded(file_transfer);
-}

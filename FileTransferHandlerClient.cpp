@@ -7,21 +7,52 @@
 #include "MessageType.h"
 
 
+FileTransferHandlerClient::FileTransferHandlerClient(std::shared_ptr<ThreadLoop> thread)
+    : _thread(thread) {
+}
+
 void FileTransferHandlerClient::MakeFileTransferRequest(uint32_t req_id,
-                                bool is_download_from_client,
                                 const std::string& path,
                                 std::shared_ptr<Connection> connection,
                                 const std::string& sever_host,
                                 int server_port) {
-  auto it = _transfers.find(req_id);
-  if(it != _transfers.end()) {
-    DLOG(error, "HandleFileTransferRequest : req id exists : {}", req_id);
+  if(_thread->OnDifferentThread()) {
+    _thread->Post(std::bind(&FileTransferHandlerClient::MakeFileTransferRequest,
+                  shared_from_this(),
+                  req_id,
+                  path,
+                  connection,
+                  sever_host,
+                  server_port
+    ));
     return;
   }
 
-  std::shared_ptr<FileTransfer> file_transfer = std::make_shared<FileTransfer>(GetSptr(), req_id, path, is_download_from_client);
-  _transfers.insert(std::make_pair(req_id, file_transfer));
-  connection->CreateClient(server_port, sever_host, file_transfer);
+  auto transfer = std::make_shared<FileTransfer>(shared_from_this(), req_id, path, true);
+  _transfers.insert({req_id, transfer});
+  connection->CreateClient(server_port, sever_host, transfer);
 }
 
-void FileTransferHandlerClient::OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) {}
+void FileTransferHandlerClient::Release(uint32_t request_id) {
+  if(_thread->OnDifferentThread()) {
+    _thread->Post(std::bind(&FileTransferHandlerClient::Release, shared_from_this(), request_id));
+    return;
+  }
+  _transfers.erase(request_id);
+}
+
+void FileTransferHandlerClient::ReleaseAll() {
+  if(_thread->OnDifferentThread()) {
+    _thread->Post(std::bind(&FileTransferHandlerClient::ReleaseAll, shared_from_this()));
+    return;
+  }
+  _transfers.clear();
+}
+
+void FileTransferHandlerClient::OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
+  Release(file_transfer->GetRequestId());
+}
+
+void FileTransferHandlerClient::OnFileTransferDataSent(std::shared_ptr<FileTransfer> file_transfer) {
+  Release(file_transfer->GetRequestId());
+}

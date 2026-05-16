@@ -28,8 +28,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 int main () {
-  log()->info("TerminalClientWrapper::Init : {}", TerminalClientWrapper::Init());
-  while(true) {
+  bool init_result = TerminalClientWrapper::Init();
+  log()->info("TerminalClientWrapper::Init : {}", init_result);
+  while(init_result) {
     sleep(1);
   }
   return 0;

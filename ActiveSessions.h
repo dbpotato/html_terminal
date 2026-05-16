@@ -29,7 +29,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <vector>
 
 class Client;
-class FileTransfer;
 
 class ActiveSessions {
 public:
@@ -47,32 +46,6 @@ public:
     std::map<uint32_t, uint32_t> _terminal_ids; // terminal_id, remote_host_id
   };
 
-  class FileTransferSession {
-  public:
-    FileTransferSession(bool is_dir_listing);
-    uint32_t GetId();
-    bool IsDirListing();
-    void SetTerminalAndHostId(uint32_t terminal_id, uint32_t remote_host_id);
-    uint32_t GetTerminalId();
-    uint32_t GetRemoteHostId();
-    void SetWebAppWSClient(std::weak_ptr<Client> client);
-    void SetWebAppTransferClient(std::shared_ptr<Client> client);
-    void SetFileTransfer(std::weak_ptr<FileTransfer> file_transfer);
-    std::weak_ptr<Client> GetWebAppWSClient();
-    std::shared_ptr<Client> GetWebAppTransferClient();
-    std::weak_ptr<FileTransfer> GetFileTransfer();
-  private :
-    static uint32_t NextId();
-    static std::atomic<uint32_t> _id_counter;
-    bool _is_dir_listing;
-    uint32_t _id;
-    uint32_t _terminal_id;
-    uint32_t _remote_host_id;
-    std::weak_ptr<Client> _web_app_ws_client;
-    std::shared_ptr<Client> _web_app_transfer_client;
-    std::weak_ptr<FileTransfer> _file_transfer;
-  };
-
   std::shared_ptr<WebAppSession> CreateWebAppSession(std::shared_ptr<Client> web_app_client);
   std::shared_ptr<WebAppSession> GetWebAppSessionByClient(std::shared_ptr<Client> web_app_client);
   std::shared_ptr<WebAppSession> GetWebAppSessionByClientId(uint32_t web_app_client_id);
@@ -85,11 +58,6 @@ public:
   bool GetRemoteHostByTerminal(uint32_t client_id, uint32_t terminal_id, uint32_t& out_remote_host_id);
   bool GetRemoteHostByTerminal(uint32_t terminal_id, uint32_t& out_remote_host_id);
 
-  std::shared_ptr<FileTransferSession> CreateFileTransferSession(bool is_dir_listing);
-  std::shared_ptr<FileTransferSession> GetFileTransferSession(uint32_t file_session_id);
-  bool EraseFileTransferSession(uint32_t file_session_id);
-
 private:
   std::map<uint32_t, std::shared_ptr<ActiveSessions::WebAppSession>> _web_app_sessions; //by web app client id
-  std::map<uint32_t, std::shared_ptr<ActiveSessions::FileTransferSession>> _transfer_sessions; //by FileTransferSession id
 };

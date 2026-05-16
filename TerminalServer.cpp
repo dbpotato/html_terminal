@@ -33,6 +33,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "DataResource.h"
 #include "Connection.h"
 #include "Server.h"
+#include "FileTransferHandlerServer.h"
 
 
 std::atomic<uint32_t> TerminalServer::_id_counter(0);
@@ -51,9 +52,9 @@ bool RemoteHost::GetTerminalInfo(uint32_t terminal_id, TerminalInfo& out_result)
   return true;
 }
 
-void TerminalServer::Init(std::shared_ptr<WebAppServer> server_impl, std::shared_ptr<Server> proxy_server) {
+void TerminalServer::Init(std::shared_ptr<WebAppServer> server_impl, std::shared_ptr<Server> remote_hosts_server) {
   _webapp_server = server_impl;
-  _proxy_server = proxy_server;
+  _remote_hosts_server = remote_hosts_server;
   _thread = std::make_shared<ThreadLoop>();
   _thread->Init();
 }
@@ -75,7 +76,7 @@ void TerminalServer::CreateNewTerminal(uint32_t app_client_id, uint32_t remote_h
     return;
   }
 
-  auto remote_host = _proxy_server->GetClient(remote_host_id);
+  auto remote_host = _remote_hosts_server->GetClient(remote_host_id);
   if(!remote_host) {
     DLOG(warn, "TerminalServer::CreateNewTerminal : remote host doesn't exist : {}", remote_host_id);
     return;
@@ -102,9 +103,9 @@ void TerminalServer::ResizeTerminal(int remote_host_id, int terminal_id, int wid
     return;
   }
 
-  auto proxy_client = _proxy_server->GetClient((uint32_t)remote_host_id);
-  if(!proxy_client) {
-    DLOG(warn, "TerminalServer::ResizeTerminal : proxy client doesn't exist");
+  auto client = _remote_hosts_server->GetClient((uint32_t)remote_host_id);
+  if(!client) {
+    DLOG(warn, "TerminalServer::ResizeTerminal : client doesn't exist");
     return;
   }
 
@@ -118,7 +119,7 @@ void TerminalServer::ResizeTerminal(int remote_host_id, int terminal_id, int wid
   auto resource = std::make_shared<DataResource>(data);
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::RESIZE_TERMINAL, resource);
 
-  proxy_client->Send(msg);
+  client->Send(msg);
 }
 
 void TerminalServer::DeleteTerminal(int remote_host_id, int terminal_id){
@@ -132,8 +133,8 @@ void TerminalServer::DeleteTerminal(int remote_host_id, int terminal_id){
 
   DLOG(info, "DeleteTerminal : {}", terminal_id);
 
-  auto proxy_client = _proxy_server->GetClient((uint32_t)remote_host_id);
-  if(!proxy_client) {
+  auto client = _remote_hosts_server->GetClient((uint32_t)remote_host_id);
+  if(!client) {
     DLOG(warn, "TerminalServer::DeleteTerminal : terminal client doesn't exist");
     return;
   }
@@ -142,7 +143,7 @@ void TerminalServer::DeleteTerminal(int remote_host_id, int terminal_id){
   auto resource = std::make_shared<DataResource>(data);
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::DELETE_TERMINAL, resource);
 
-  proxy_client->Send(msg);
+  client->Send(msg);
 }
 
 void TerminalServer::SendKeyEvent(int remote_host_id, int terminal_id, const std::string& key) {
@@ -151,8 +152,8 @@ void TerminalServer::SendKeyEvent(int remote_host_id, int terminal_id, const std
     return;
   }
 
-  auto proxy_client = _proxy_server->GetClient((uint32_t)remote_host_id);
-  if(!proxy_client) {
+  auto client = _remote_hosts_server->GetClient((uint32_t)remote_host_id);
+  if(!client) {
     DLOG(warn, "TerminalServer::SendKeyEvent : terminal client doesn't exist");
     return;
   }
@@ -163,7 +164,7 @@ void TerminalServer::SendKeyEvent(int remote_host_id, int terminal_id, const std
   auto resource = std::make_shared<DataResource>(data);
   auto msg = std::make_shared<SimpleMessage>((uint8_t)MessageType::ON_TERMINAL_WRITE, resource);
 
-  proxy_client->Send(msg);
+  client->Send(msg);
 }
 
 
@@ -238,9 +239,13 @@ void TerminalServer::SendPingToClient(std::shared_ptr<Client> client) {
 void TerminalServer::CreateClient(std::shared_ptr<MonitorTask> task, const std::string& url, int port) {
 }
 
+std::shared_ptr<Client> TerminalServer::GetClientByRemoteHostId(uint32_t remote_host_id) {
+  return _remote_hosts_server->GetClient(remote_host_id);
+}
+
 void TerminalServer::OnClientUnresponsive(std::shared_ptr<Client> client) {
   DLOG(info, "Unresponsive client : {}", client->GetId());
-  _proxy_server->RemoveClient(client);
+  _remote_hosts_server->RemoveClient(client);
   OnClientClosed(client);
 }
 
@@ -324,8 +329,8 @@ void TerminalServer::HandlePingMessage(std::shared_ptr<Client> client) {
 }
 
 void TerminalServer::HandleFileTransferInit(std::shared_ptr<Client> client, std::shared_ptr<Data> data) {
-  FileTransferHandlerServer::HandleFileTransferInit(client, data);
-  _proxy_server->RemoveClient(client);
+  _remote_hosts_server->RemoveClient(client);
+  FileTransferHandlerServer::OnFileTransferInit(client, data);
 }
 
 bool TerminalServer::GetAppClinetId(uint32_t client_id, uint32_t terminal_id, uint32_t& out_app_client_id) {
@@ -343,41 +348,4 @@ bool TerminalServer::GetAppClinetId(uint32_t client_id, uint32_t terminal_id, ui
     return true;
   }
   return false;
-}
-
-
-std::shared_ptr<FileTransfer> TerminalServer::CreateFileRequest(int remote_host_id, uint32_t file_transfer_id, const std::string& path, bool is_download_from_client) {
-  auto host_client = _proxy_server->GetClient((uint32_t)remote_host_id);
-  if(!host_client) {
-    DLOG(warn, "TerminalServer::CreateFileRequest : host_client doesn't exist");
-    return nullptr;
-  }
-
-  auto request = MakeNewTransferReq(host_client, file_transfer_id, path, is_download_from_client);
-  if(!request) {
-    DLOG(error, "TerminalServer::CreateFileRequest failed");
-  }
-  return request;
-}
-
-void TerminalServer::OnFileTransferReqAccepted(std::shared_ptr<FileTransfer> file_transfer) {
-  _webapp_server->HandleFileTransferAccepted(file_transfer);
-}
-
-void TerminalServer::OnFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer) {
-  _webapp_server->HandleFileTransferFailed(file_transfer);
-  MaybeReleaseTransferIfEnded(file_transfer);
-}
-
-void TerminalServer::OnFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg) {
-  _webapp_server->HandleFileTransferDataReceived(file_transfer, msg);
-}
-
-void TerminalServer::OnFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer) {
-  _webapp_server->HandleFileTransferCompleted(file_transfer);
-  FileTransferHandlerServer::OnFileTransferCompleted(file_transfer);
-}
-
-std::shared_ptr<FileTransferHandler> TerminalServer::GetSptr() {
-  return shared_from_this();
 }

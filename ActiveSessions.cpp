@@ -26,70 +26,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Logger.h"
 
 
-std::atomic<uint32_t> ActiveSessions::FileTransferSession::_id_counter(0);
-
-
-uint32_t ActiveSessions::FileTransferSession::NextId() {
-  if(_id_counter == std::numeric_limits<uint32_t>::max()) {
-    DLOG(error, "FileTransferSession's id counter overflow");
-  }
-  return ++_id_counter;
-}
-
-ActiveSessions::FileTransferSession::FileTransferSession(bool is_dir_listing)
-    : _is_dir_listing(is_dir_listing)
-    , _terminal_id(0)
-    , _remote_host_id(0) {
-  _id = NextId();
-}
-
-bool ActiveSessions::FileTransferSession::IsDirListing() {
-  return _is_dir_listing;
-}
-
-uint32_t ActiveSessions::FileTransferSession::GetId()  {
-  return _id;
-}
-
-void ActiveSessions::FileTransferSession::SetTerminalAndHostId(uint32_t terminal_id, uint32_t remote_host_id) {
-  _terminal_id = terminal_id;
-  _remote_host_id = remote_host_id;
-}
-
-uint32_t ActiveSessions::FileTransferSession::GetTerminalId() {
-  return _terminal_id;
-}
-
-uint32_t ActiveSessions::FileTransferSession::GetRemoteHostId() {
-  return _remote_host_id;
-}
-
-void ActiveSessions::FileTransferSession::SetWebAppWSClient(std::weak_ptr<Client> client) {
-  _web_app_ws_client = client;
-}
-
-void ActiveSessions::FileTransferSession::SetWebAppTransferClient(std::shared_ptr<Client> client) {
-  _web_app_transfer_client = client;
-}
-
-void ActiveSessions::FileTransferSession::SetFileTransfer(std::weak_ptr<FileTransfer> file_transfer) {
-  _file_transfer = file_transfer;
-}
-
-std::weak_ptr<Client> ActiveSessions::FileTransferSession::GetWebAppWSClient() {
-  return _web_app_ws_client;
-}
-
-std::shared_ptr<Client> ActiveSessions::FileTransferSession::GetWebAppTransferClient() {
-  return _web_app_transfer_client;
-}
-
-std::weak_ptr<FileTransfer> ActiveSessions::FileTransferSession::GetFileTransfer() {
-  return _file_transfer;
-}
-
-
-
 
 ActiveSessions::WebAppSession::WebAppSession(std::shared_ptr<Client> web_app_client)
      : _web_app_client(web_app_client) {
@@ -212,22 +148,3 @@ bool ActiveSessions::GetRemoteHostByTerminal(uint32_t terminal_id, uint32_t& out
   return false;
 }
 
-std::shared_ptr<ActiveSessions::FileTransferSession> ActiveSessions::CreateFileTransferSession(bool is_dir_listing) {
-  auto session = std::make_shared<ActiveSessions::FileTransferSession>(is_dir_listing);
-  _transfer_sessions.insert({session->GetId(), session});
-  return session;
-}
-
-
-std::shared_ptr<ActiveSessions::FileTransferSession> ActiveSessions::GetFileTransferSession(uint32_t file_session_id) {
-  std::shared_ptr<ActiveSessions::FileTransferSession> result;
-  auto it = _transfer_sessions.find(file_session_id);
-  if(it != _transfer_sessions.end()) {
-    result = it->second;
-  }
-  return result;
-}
-
-bool ActiveSessions::EraseFileTransferSession(uint32_t file_session_id) {
-  return _transfer_sessions.erase(file_session_id);
-}

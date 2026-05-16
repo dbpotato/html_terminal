@@ -1,5 +1,5 @@
 #[[
-Copyright (c) 2023 - 2025 Adam Kaniewski
+Copyright (c) 2023 - 2026 Adam Kaniewski
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -27,6 +27,7 @@ project(HTML_TERMINAL)
 
 set(DEFAULT_CXX_FLAGS
  "-O2 \
+ -s \
  -std=gnu++17 \
  -Wall \
  -Werror \
@@ -109,19 +110,12 @@ set(COMMON
   ${COMMON_DIR}/tools/thread/ThreadLoop.cpp
   ${COMMON_DIR}/tools/utils/Data.cpp
   ${COMMON_DIR}/tools/utils/DataResource.cpp
-  ${COMMON_DIR}/tools/utils/TapeCutter.cpp
-) 
-
-set (FILE_TRANSFER
-  ${SRC_DIR}/FileTransfer.cpp
-  ${SRC_DIR}/FileTransferHandlerServer.cpp
-  ${SRC_DIR}/FileTransferHandlerClient.cpp
   ${COMMON_DIR}/tools/utils/DirectoryListing.cpp
+  ${COMMON_DIR}/tools/utils/TapeCutter.cpp
 )
 
 set(SERVER
   ${COMMON}
-  ${FILE_TRANSFER}
   ${COMMON_DIR}/third_party/cpp-base64/base64.cpp
   ${COMMON_DIR}/tools/net/http/HttpDataCutter.cpp
   ${COMMON_DIR}/tools/net/http/HttpDataParser.cpp
@@ -136,8 +130,12 @@ set(SERVER
   ${COMMON_DIR}/tools/net/http/websocket/common/WebsocketMessage.cpp
   ${COMMON_DIR}/tools/net/http/websocket/common/WebsocketMessageBuilder.cpp
   ${COMMON_DIR}/tools/net/http/websocket/common/WebsocketFragmentBuilder.cpp
+  ${COMMON_DIR}/tools/net/utils/ProxyPipe.cpp
+  ${COMMON_DIR}/tools/utils/CommandLineArgs.cpp
   ${SRC_DIR}/control_server.cpp
   ${SRC_DIR}/ActiveSessions.cpp
+  ${SRC_DIR}/FileTransfer.cpp
+  ${SRC_DIR}/FileTransferHandlerServer.cpp
   ${SRC_DIR}/JsonMsg.cpp
   ${SRC_DIR}/TerminalServer.cpp
   ${SRC_DIR}/WebAppData.cpp
@@ -151,10 +149,11 @@ set(CLIENT
 
 set(CLIENT_LIB
   ${COMMON}
-  ${FILE_TRANSFER}
   ${COMMON_DIR}/tools/thread/AsyncTask.cpp
   ${COMMON_DIR}/tools/system/Terminal.cpp
   ${SRC_DIR}/ClientLib.cpp
+  ${SRC_DIR}/FileTransfer.cpp
+  ${SRC_DIR}/FileTransferHandlerClient.cpp
   ${SRC_DIR}/TerminalClient.cpp
   ${SRC_DIR}/TerminalHandler.cpp
 )

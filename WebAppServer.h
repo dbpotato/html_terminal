@@ -48,8 +48,9 @@ class WebAppServer : public HttpRequestHandler
                    , public std::enable_shared_from_this<WebAppServer> {
 
 public:
-  WebAppServer(std::shared_ptr<WebsocketServer> ws_server, std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src);
-
+  static std::shared_ptr<WebAppServer> GetInstance();
+  void Init(std::shared_ptr<WebsocketServer> ws_server, std::shared_ptr<TerminalServer> term_proxy, bool listen_all_src);
+  std::shared_ptr<ThreadLoop> GetThread();
   void Handle(HttpRequest& request) override;
   bool OnWsClientConnected(std::shared_ptr<Client> client, const std::string& request_arg) override;
   void OnWsClientMessage(std::shared_ptr<Client> client, std::shared_ptr<WebsocketMessage> message) override;
@@ -64,11 +65,9 @@ public:
   void OnTerminalOutput(uint32_t client_id, uint32_t terminal_id, std::shared_ptr<Data> output);
   void OnTerminalClosed(uint32_t client_id, uint32_t terminal_id, uint32_t remote_host_id);
 
-  void HandleFileTransferAccepted(std::shared_ptr<FileTransfer> file_transfer);
-  void HandleFileTransferFailed(std::shared_ptr<FileTransfer> file_transfer);
-  void HandleFileTransferDataReceived(std::shared_ptr<FileTransfer> file_transfer, std::shared_ptr<Message> msg);
-  void HandleFileTransferCompleted(std::shared_ptr<FileTransfer> file_transfer);
-
+protected:
+  WebAppServer();
+  static std::weak_ptr<WebAppServer> _instance;
 private:
   struct RemoteHostInfo {
     std::string _ip;
@@ -92,7 +91,6 @@ private:
 
   void OnFileSysReq(std::shared_ptr<Client> client, int terminal_id, const std::string& key, bool is_dir);
   void ContinueFileRequestSession(uint32_t session_id, std::shared_ptr<Client> client);
-  void NotifyFileReqFailed(std::shared_ptr<ActiveSessions::FileTransferSession> session, std::shared_ptr<FileTransfer> file_transfer);
 
   std::shared_ptr<WebsocketServer> _ws_server;
   std::shared_ptr<TerminalServer> _term_server;
